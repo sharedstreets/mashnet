@@ -1,0 +1,38 @@
+{
+  "name": "mashnet",
+  "version": "1.0.0",
+  "description": "map conflation toolset",
+  "main": "index.js",
+  "scripts": {
+    "test": "tap -R spec test/*.test.js",
+    "lint": "prettier --write *.js src/*.js test/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sharedstreets/mashnet.git"
+  },
+  "keywords": [
+    "maps",
+    "streets",
+    "graph"
+  ],
+  "author": "morganherlocker",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/sharedstreets/mashnet/issues"
+  },
+  "homepage": "https://github.com/sharedstreets/mashnet#readme",
+  "devDependencies": {
+    "prettier": "^1.19.1",
+    "tap": "^14.10.1"
+  },
+  "dependencies": {
+    "@mapbox/tile-cover": "^3.0.2",
+    "@turf/turf": "^5.1.6",
+    "byline": "^5.0.0",
+    "level": "^6.0.0",
+    "level-mem": "^5.0.1",
+    "minimist": "^1.2.0",
+    "through2": "^3.0.1"
+  }
+}
