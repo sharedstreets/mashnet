@@ -1,13 +1,18 @@
 mashnet
 ---
 
-![](https://i.imgur.com/mlE7O8x.jpg)
+- [overview](https://github.com/sharedstreets/mashnet#overview)
+- [interface](https://github.com/sharedstreets/mashnet#interface)
+- [data](https://github.com/sharedstreets/mashnet#data)
+- [model](https://github.com/sharedstreets/mashnet#model)
+- [actions](https://github.com/sharedstreets/mashnet#actions)
+- [workflow](https://github.com/sharedstreets/mashnet#workflow)
 
-- [interface](https://gist.github.com/morganherlocker/7a42df347d338ce2488dcb250f6dd71f#interface)
-- [data](https://gist.github.com/morganherlocker/7a42df347d338ce2488dcb250f6dd71f#data)
-- [model](https://gist.github.com/morganherlocker/7a42df347d338ce2488dcb250f6dd71f#model)
-- [actions](https://gist.github.com/morganherlocker/7a42df347d338ce2488dcb250f6dd71f#actions)
-- [workflow](https://gist.github.com/morganherlocker/7a42df347d338ce2488dcb250f6dd71f#workflow)
+---
+
+## overview
+
+![](https://i.imgur.com/mlE7O8x.jpg)
 
 ## interface
 
