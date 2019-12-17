@@ -12,7 +12,11 @@ mashnet
 
 ## overview
 
-![](https://i.imgur.com/mlE7O8x.jpg)
+`Mashnet` is a street network conflation library, used to merge road graphs for mapping and routing. It is designed to work with both human mapped data and ML derived networks, aiming for clean and consistent merging, even with disparate input datasets. Use `mashnet` to detect missing edges in the road graph, and enhance existing edges with new metadata.
+
+_Example of merging 3 road networks into a single, routable network:_
+
+![](https://i.imgur.com/ihvsQZR.jpg)
 
 ## interface
 
