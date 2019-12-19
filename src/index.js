@@ -132,11 +132,11 @@ Mashnet.prototype.match = function(addition) {
     var scores = compare(a, b);
 
     var weights = {
-      distance: 0.6,
-      straight: 0.3,
+      distance: 0.1,
+      straight: 0.4,
       curve: 0.1,
-      scan: 1,
-      terminal: 0.8
+      scan: 0.8,
+      terminal: 0.1
     };
 
     var score = 0;
@@ -160,18 +160,15 @@ Mashnet.prototype.match = function(addition) {
   );
   var i = 0;
   for (let sm of softmaxScores) {
-    matches[i].score = sm;
+    matches[i].softmax = sm;
     i++;
   }
 
   matches = matches.sort((a, b) => {
     return b.score - a.score;
   });
-  console.log(matches);
-  console.log(matches[0].score);
-  console.log(
-    JSON.stringify(turf.featureCollection([addition, matches[0].line]))
-  );
+
+  return matches;
 };
 
 function compare(a, b) {
@@ -257,6 +254,15 @@ function heuristics(line) {
     terminal: terminal
   };
 }
+
+Mashnet.prototype.merge = function(existing, addition) {
+  // merge existing edge
+  var metadata = this.metadata.get(existing);
+  for (let property of Object.keys(addition)) {
+    metadata[property] = addition[property];
+  }
+  this.metadata.set(existing, metadata);
+};
 
 Mashnet.prototype.add = function() {
   // add new edge
