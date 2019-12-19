@@ -4,7 +4,7 @@
   "description": "map conflation toolset",
   "main": "index.js",
   "scripts": {
-    "test": "tap -R spec test/*.test.js",
+    "test": "time node --max-old-space-size=4096 test/index.test.js",
     "lint": "prettier --write *.js src/*.js test/*.js"
   },
   "repository": {
@@ -24,15 +24,19 @@
   "homepage": "https://github.com/sharedstreets/mashnet#readme",
   "devDependencies": {
     "prettier": "^1.19.1",
-    "tap": "^14.10.1"
+    "tap": "^14.10.5"
   },
   "dependencies": {
+    "@mapbox/graph-normalizer": "^3.1.1",
     "@mapbox/tile-cover": "^3.0.2",
     "@turf/turf": "^5.1.6",
     "byline": "^5.0.0",
     "level": "^6.0.0",
     "level-mem": "^5.0.1",
     "minimist": "^1.2.0",
+    "osm-pbf-parser": "^2.3.0",
+    "rbush": "^3.0.1",
+    "softmax-fn": "^1.0.8",
     "through2": "^3.0.1"
   }
 }
