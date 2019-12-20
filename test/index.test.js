@@ -28,6 +28,7 @@ test("mashnet", async t => {
   console.log(
     JSON.stringify(turf.featureCollection([addition, result[0].line]))
   );
+  console.log(JSON.stringify(result));
   console.log("SCORE: ", result[0].softmax);
   console.log(result);
   t.ok(result.length > 0, "found matches");
