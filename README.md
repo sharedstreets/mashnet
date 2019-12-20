@@ -1,4 +1,4 @@
-mashnet
+[WIP] mashnet
 ---
 
 - [overview](https://github.com/sharedstreets/mashnet#overview)
@@ -8,6 +8,10 @@ mashnet
 - [workflow](https://github.com/sharedstreets/mashnet#workflow)
 - [actions](https://github.com/sharedstreets/mashnet#actions)
 - [misc](https://github.com/sharedstreets/mashnet#misc)
+- [install](https://github.com/sharedstreets/mashnet#install)
+- [test](https://github.com/sharedstreets/mashnet#test)
+- [lint](https://github.com/sharedstreets/mashnet#lint)
+- [fixtures](https://github.com/sharedstreets/mashnet#fixtures)
 
 ---
 
@@ -102,3 +106,31 @@ A conflation network can be created from scratch or with a bootstrapped graph fr
 - match threshold should be configurable using a metric scale for match probability
 - once all merges have been performed, dump database to disk format or upload to s3 if in browser
 - library will come with pre-computed match weights and normalization parameters for convenient deployment
+
+## install
+
+```sh
+npm i mashnet
+```
+
+## test
+
+```sh
+npm t
+```
+
+## lint
+
+Runs a linter across codebase and automatically formats all code using [prettier](https://prettier.io).
+
+```sh
+npm run lint
+```
+
+## fixtures
+
+A small OpenStreetMap file is included with this codebase. The following script will generate a set of perturbed road graphs that are used for testing and benchmarking. Generate fixtures before running tests.
+
+```sh
+npm run fixtures
+```
