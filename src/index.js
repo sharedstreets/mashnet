@@ -132,11 +132,11 @@ Mashnet.prototype.match = function(addition) {
     var scores = compare(a, b);
 
     var weights = {
-      distance: 0.1,
-      straight: 0.4,
-      curve: 0.1,
-      scan: 0.8,
-      terminal: 0.1
+      distance: 1,
+      straight: 1,
+      curve: 1,
+      scan: 1,
+      terminal: 1
     };
 
     var score = 0;
@@ -165,7 +165,7 @@ Mashnet.prototype.match = function(addition) {
   }
 
   matches = matches.sort((a, b) => {
-    return b.score - a.score;
+    return b.softmax - a.softmax;
   });
 
   return matches;
@@ -266,6 +266,51 @@ Mashnet.prototype.merge = function(existing, addition) {
 
 Mashnet.prototype.add = function() {
   // add new edge
+};
+
+Mashnet.prototype.toJSON = function() {
+  // serialize
+  var json = {
+    edges: [],
+    vertices: [],
+    nodes: [],
+    metadata: [],
+    nodetree: this.nodetree.toJSON(),
+    edgetree: this.edgetree.toJSON()
+  };
+
+  for (let edge of this.edges) {
+    json.edges.push(edge);
+  }
+  for (let vertex of this.vertices) {
+    json.vertices.push(vertex);
+  }
+  for (let node of this.nodes) {
+    json.nodes.push(node);
+  }
+  for (let data of this.metadata) {
+    json.metadata.push(data);
+  }
+
+  return json;
+};
+
+Mashnet.prototype.fromJSON = function(json) {
+  // deserialize
+  for (let edge of json.edges) {
+    this.set(edge[0], edge[1]);
+  }
+  for (let vertex of json.vertices) {
+    this.set(vertex[0], vertex[1]);
+  }
+  for (let node of json.nodes) {
+    this.set(node[0], node[1]);
+  }
+  for (let data of json.metadata) {
+    this.set(data[0], data[1]);
+  }
+  this.edgetree = rbush.fromJSON(json.edgetree);
+  this.nodetree = rbush.fromJSON(json.nodetree);
 };
 
 module.exports = Mashnet;
