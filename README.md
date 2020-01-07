@@ -63,6 +63,22 @@ Match takes a list of edge scores and returns a confidence score that the top ra
 const isMatch = net.match(scores)
 ```
 
+### merge
+
+Merge accepts an existing metadata Id and a new set of metadata. The function will add or overwrite any new metadata to the existing blob. This function should be performed when a likely match is detected.
+
+```js
+const metadata = {
+  highway: "motorway",
+  surface: "asphalt",
+  max_speed: 70
+}
+const isMatch = net.match(scores)
+if (isMatch > 0.95) {
+  net.merge(scores[0].id, metadata)
+}
+```
+
 ### toJSON
 
 Serializes the loaded graph to a JSON format that can be transferred or stored to disk.
