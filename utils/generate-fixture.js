@@ -11,8 +11,8 @@ const normalize = require("../src/normalizer.js");
 const Mashnet = require("../src/index.js");
 
 async function run() {
-  const pbf = path.join(__dirname, process.argv[2]);
-  const fixture = path.join(__dirname, process.argv[3]);
+  const pbf = process.argv[2];
+  const fixture = process.argv[3];
 
   var ways = await loadPBF(pbf);
   var graph = normalize(ways);
@@ -43,7 +43,7 @@ async function loadPBF(pbf) {
       }
     }
 
-    if (complete) {
+    if (complete && coordinates.length >= 2) {
       var edge = turf.lineString(coordinates, { id: way.id, refs: way.refs });
       for (let tag of Object.keys(way.tags)) {
         edge.properties[tag] = way.tags[tag];
