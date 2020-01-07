@@ -23,15 +23,17 @@ test("mashnet", async t => {
   };
   var result = net.match(addition);
 
-  addition.properties.stroke = "blue";
+  t.ok(result.length > 0, "found matches");
+  t.equal(result[0].line.type, "Feature", "result contains matched feature");
+
+  /*addition.properties.stroke = "blue";
   result[0].line.properties.stroke = "red";
   console.log(
     JSON.stringify(turf.featureCollection([addition, result[0].line]))
   );
   console.log(JSON.stringify(result));
   console.log("SCORE: ", result[0].softmax);
-  console.log(result);
-  t.ok(result.length > 0, "found matches");
+  console.log(result);*/
 
   t.done();
 });
