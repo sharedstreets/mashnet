@@ -4,8 +4,10 @@
   "description": "map conflation toolset",
   "main": "index.js",
   "scripts": {
-    "test": "time node --max-old-space-size=4096 test/index.test.js",
-    "lint": "prettier --write *.js src/*.js test/*.js"
+    "test": "tap -R spec --no-coverage test/index.test.js",
+    "coverage": "tap test/index.test.js",
+    "lint": "prettier --write *.js src/*.js test/*.js",
+    "train": "node train/match.js"
   },
   "repository": {
     "type": "git",

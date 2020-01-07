@@ -119,6 +119,12 @@ npm i mashnet
 npm t
 ```
 
+## coverage
+
+```sh
+npm run coverage
+```
+
 ## lint
 
 Runs a linter across codebase and automatically formats all code using [prettier](https://prettier.io).
@@ -127,10 +133,10 @@ Runs a linter across codebase and automatically formats all code using [prettier
 npm run lint
 ```
 
-## fixtures
+## train
 
-A small OpenStreetMap file is included with this codebase. The following script will generate a set of perturbed road graphs that are used for testing and benchmarking. Generate fixtures before running tests.
+A pre-trained neural network is included with `mashnet`. A new network can be trained with custom parameters or training data.
 
 ```sh
-npm run fixtures
+npm run train
 ```
