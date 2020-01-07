@@ -2,8 +2,7 @@
 ---
 
 - [overview](https://github.com/sharedstreets/mashnet#overview)
-- [interface](https://github.com/sharedstreets/mashnet#interface)
-- [data](https://github.com/sharedstreets/mashnet#data)
+- [API](https://github.com/sharedstreets/mashnet#API)
 - [model](https://github.com/sharedstreets/mashnet#model)
 - [workflow](https://github.com/sharedstreets/mashnet#workflow)
 - [actions](https://github.com/sharedstreets/mashnet#actions)
@@ -23,15 +22,64 @@ _Example of merging 3 road networks into a single, routable network:_
 
 ![](https://i.imgur.com/ihvsQZR.jpg)
 
-## interface
+## API
 
-- API
-- CLI
+### new
 
-## data
+The `mashnet` constructor is used to instantiate a new network. An optional path may be provided to an existing serialized road graph.
 
-- data is internally stored in a key value structure that represents a graph
-- key value structure is designed to be easy to serialize and deserialize, for both portability and storage
+```js
+const Mashnet = require('mashnet')
+
+const net = new Mashnet('./honolulu.json')
+```
+
+### scan
+
+Scan takes a proposed street and returns a list of similar edges in the existing graph. The edge list is ranked by similarity score.
+
+```js
+const street = {
+  type: "Feature",
+  properties: {},
+  geometry: {
+    type: "LineString",
+    coordinates: [
+      [-157.9146158695221, 21.346424354025306],
+      [-157.9154634475708, 21.347043906401122],
+      [-157.9165470600128, 21.348442886005444]
+    ]
+  }
+}
+
+const scores = net.scan(street)
+```
+
+### match
+
+Match takes a list of edge scores and returns a confidence score that the top ranked edge represents the same street as the proposed input street.
+
+```js
+const isMatch = net.match(scores)
+```
+
+### toJSON
+
+Serializes the loaded graph to a JSON format that can be transferred or stored to disk.
+
+```js
+const data = net.toJSON()
+fs.writeFileSync('honolulu.json', JSON.stringify(data))
+```
+
+### fromJSON
+
+Loads a JSON representation of a street network into memory for performing operations. This can also be accomplished using the `mashnet` constructor.
+
+```js
+const honolulu = require('honolulu.json')
+net.fromJSON(honolulu)
+```
 
 ## model
 
