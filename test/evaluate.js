@@ -10,38 +10,55 @@ const Mashnet = require("../src/index.js");
 const SHIFT = 0.003;
 const JITTER = 0.0005;
 const UNITS = { units: "kilometers" };
-const TRAIN_COUNT = 10000;
-const ITERATIONS = 10000;
 
 const honolulu = require(path.join(__dirname, "./fixtures/honolulu.json"));
 const chance = new Chance();
 const modelDir = path.join(__dirname, "../model/");
-const model = path.join(modelDir, "match.json");
+const modelPath = path.join(modelDir, "match.json");
 mkdirp.sync(modelDir);
 
 var net = new Mashnet(honolulu);
 
-var samples = [];
+const model = require(modelPath);
+const nn = new brain.NeuralNetwork();
+nn.fromJSON(model);
+
 var i = 0;
 for (let edge of net.edges) {
   i++;
-  console.log(i);
-  if (i < TRAIN_COUNT) {
-    var fake = perturb(net, edge[1]);
+  console.error(i);
 
-    if (chance.bool()) {
-      // drop
-      var copy = JSON.parse(JSON.stringify(edge));
-      net.edges.delete(edge[0]);
-      net.edgetree.remove(treecopy(net, edge), (a, b) => {
-        return a.id === b.id;
+  var fake = perturb(net, edge[1]);
+
+  if (chance.bool()) {
+    // drop
+    var copy = JSON.parse(JSON.stringify(edge));
+    net.edges.delete(edge[0]);
+    net.edgetree.remove(treecopy(net, edge), (a, b) => {
+      return a.id === b.id;
+    });
+
+    // match
+    const match = net.match(fake)[0];
+    if (match && match.score) {
+      const res = nn.run({
+        distance: match.distance,
+        scale: match.scale,
+        straight: match.straight,
+        curve: match.curve,
+        scan: match.scan,
+        terminal: match.terminal,
+        bearing: match.bearing,
+        softmax: match.softmax
       });
 
-      // match
-      const match = net.match(fake)[0];
-      if (match && match.score)
-        samples.push({
-          input: {
+      if (res.match > 0.5) {
+        fake.properties.match = res.match;
+        console.log(JSON.stringify(fake));
+        /*match.line.properties.stroke = "#FFB16B";
+        console.log(JSON.stringify(turf.featureCollection([match.line, fake])));
+        console.log(
+          {
             distance: match.distance,
             scale: match.scale,
             straight: match.straight,
@@ -51,17 +68,35 @@ for (let edge of net.edges) {
             bearing: match.bearing,
             softmax: match.softmax
           },
-          output: { match: 0 }
-        });
+          res
+        );*/
+      }
+    }
 
-      // reinsert
-      net.edges.set(copy[0], copy[1]);
-      net.edgetree.insert(treecopy(net, edge));
-    } else {
-      // match
-      const match = net.match(fake)[0];
-      samples.push({
-        input: {
+    // reinsert
+    net.edges.set(copy[0], copy[1]);
+    net.edgetree.insert(treecopy(net, edge));
+  } else {
+    // match
+    const match = net.match(fake)[0];
+    const res = nn.run({
+      distance: match.distance,
+      scale: match.scale,
+      straight: match.straight,
+      curve: match.curve,
+      scan: match.scan,
+      terminal: match.terminal,
+      bearing: match.bearing,
+      softmax: match.softmax
+    });
+
+    if (res.match < 0.5) {
+      fake.properties.match = res.match;
+      console.log(JSON.stringify(fake));
+      /*match.line.properties.stroke = "#FFB16B";
+      console.log(JSON.stringify(turf.featureCollection([match.line, fake])));
+      console.log(
+        {
           distance: match.distance,
           scale: match.scale,
           straight: match.straight,
@@ -71,23 +106,11 @@ for (let edge of net.edges) {
           bearing: match.bearing,
           softmax: match.softmax
         },
-        output: { match: 1 }
-      });
+        res
+      );*/
     }
   }
 }
-
-const nn = new brain.NeuralNetwork();
-nn.train(samples, {
-  log: true,
-  logPeriod: 1000,
-  iterations: ITERATIONS,
-  learningRate: 0.1,
-  errorThresh: 0.0005
-});
-fs.writeFileSync(model, JSON.stringify(nn.toJSON()));
-
-console.log("done.");
 
 function perturb(net, edge) {
   const shift = chance.normal() * SHIFT;

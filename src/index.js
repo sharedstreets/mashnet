@@ -3,6 +3,9 @@ const turf = require("@turf/turf");
 const cover = require("@mapbox/tile-cover");
 let softmax = require("softmax-fn");
 
+const DEG2RAD = Math.PI / 180.0;
+const RAD2DEG = 180.0 / Math.PI;
+
 const Mashnet = function(ways) {
   this.edges = new Map();
   this.vertices = new Map();
@@ -101,7 +104,7 @@ Mashnet.prototype.match = function(addition) {
   // find matching edge
 
   // get candidates
-  var buffer = 0.1;
+  var buffer = 0.01;
   var bbox = turf.bbox(addition);
   var sw = turf.destination(turf.point(bbox.slice(0, 2)), buffer, 225, {
     units: "kilometers"
@@ -133,10 +136,12 @@ Mashnet.prototype.match = function(addition) {
 
     var weights = {
       distance: 1,
+      scale: 1,
       straight: 1,
       curve: 1,
       scan: 1,
-      terminal: 1
+      terminal: 1,
+      bearing: 1
     };
 
     var score = 0;
@@ -145,11 +150,15 @@ Mashnet.prototype.match = function(addition) {
     }
 
     if (score > 0) {
-      matches.push({
+      var match = {
         id: candidate.id,
         line: line,
         score: score
-      });
+      };
+      for (let s of Object.keys(scores)) {
+        match[s] = scores[s];
+      }
+      matches.push(match);
     }
   }
 
@@ -172,23 +181,47 @@ Mashnet.prototype.match = function(addition) {
 };
 
 function compare(a, b) {
-  var maxDistance = Math.max(a.distance, b.distance);
-  var minDistance = Math.min(a.distance, b.distance);
-  var maxStraight = Math.max(a.straight, b.straight);
-  var minStraight = Math.min(a.straight, b.straight);
-  var maxCurve = Math.max(a.curve, b.curve);
-  var minCurve = Math.min(a.curve, b.curve);
+  const maxDistance = Math.max(a.distance, b.distance);
+  const minDistance = Math.min(a.distance, b.distance);
+  const scale = (a.distance + b.distance) / 100;
+  if (scale > 1) scale = 1;
+  const maxStraight = Math.max(a.straight, b.straight);
+  const minStraight = Math.min(a.straight, b.straight);
+  const maxCurve = Math.max(a.curve, b.curve);
+  const minCurve = Math.min(a.curve, b.curve);
 
-  var scan = similarity(a.scan, b.scan);
-  var terminal = similarity(a.terminal, b.terminal);
+  const scan = similarity(a.scan, b.scan);
+  const terminal = similarity(a.terminal, b.terminal);
+
+  const bearingForward = bearingDistance(a.bearing, b.bearing);
+  const bearingBack = bearingDistance(b.bearing, a.bearing);
+  const bearing = Math.max(bearingForward, bearingBack);
 
   return {
     distance: minDistance / maxDistance,
+    scale: scale,
     straight: minStraight / maxStraight,
     curve: minCurve / maxCurve,
     scan: scan,
-    terminal: terminal
+    terminal: terminal,
+    bearing: Math.abs(bearing - 180) / 180
   };
+}
+
+function bearingDistance(b1, b2) {
+  const b1Rad = b1 * DEG2RAD;
+  const b2Rad = b2 * DEG2RAD;
+  const b1y = Math.cos(b1Rad);
+  const b1x = Math.sin(b1Rad);
+  const b2y = Math.cos(b2Rad);
+  const b2x = Math.sin(b2Rad);
+  const crossp = b1y * b2x - b2y * b1x;
+  const dotp = b1x * b2x + b1y * b2y;
+  if (crossp > 0) {
+    return Math.acos(dotp) * RAD2DEG;
+  } else {
+    return -Math.acos(dotp) * RAD2DEG;
+  }
 }
 
 function similarity(a, b) {
@@ -213,23 +246,23 @@ function similarity(a, b) {
 }
 
 function heuristics(line) {
-  var buffer = 0.02;
+  var buffer = 0.01;
   var units = { units: "kilometers" };
   var z = 24;
   var zs = { min_zoom: z, max_zoom: z };
-  var distance = turf.lineDistance(line, units);
-  var straight = turf.distance(
-    turf.point(line.geometry.coordinates[0]),
-    turf.point(line.geometry.coordinates[line.geometry.coordinates.length - 1]),
-    units
+  const start = turf.point(line.geometry.coordinates[0]);
+  const end = turf.point(
+    line.geometry.coordinates[line.geometry.coordinates.length - 1]
   );
+
+  var distance = turf.lineDistance(line, units);
+  var straight = turf.distance(start, end, units);
   var curve = straight / distance;
   var indexes = cover.indexes(turf.buffer(line, buffer, units).geometry, zs);
   var scan = new Set();
   for (let index of indexes) {
     scan.add(index);
   }
-
   var terminalIndexes = cover.indexes(
     turf.buffer(
       turf.multiPoint([
@@ -245,13 +278,15 @@ function heuristics(line) {
   for (let index of terminalIndexes) {
     terminal.add(index);
   }
+  const bearing = turf.bearing(start, end);
 
   return {
     distance: distance,
     straight: straight,
     curve: curve,
     scan: scan,
-    terminal: terminal
+    terminal: terminal,
+    bearing: bearing
   };
 }
 
