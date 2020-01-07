@@ -1,20 +1,21 @@
 [WIP] mashnet
 ---
 
-- [overview](https://github.com/sharedstreets/mashnet#overview)
+- [Overview](https://github.com/sharedstreets/mashnet#overview)
 - [API](https://github.com/sharedstreets/mashnet#API)
-- [model](https://github.com/sharedstreets/mashnet#model)
-- [workflow](https://github.com/sharedstreets/mashnet#workflow)
-- [actions](https://github.com/sharedstreets/mashnet#actions)
-- [misc](https://github.com/sharedstreets/mashnet#misc)
-- [install](https://github.com/sharedstreets/mashnet#install)
-- [test](https://github.com/sharedstreets/mashnet#test)
-- [lint](https://github.com/sharedstreets/mashnet#lint)
-- [fixtures](https://github.com/sharedstreets/mashnet#fixtures)
+- [Model](https://github.com/sharedstreets/mashnet#model)
+- [Workflow](https://github.com/sharedstreets/mashnet#workflow)
+- [Actions](https://github.com/sharedstreets/mashnet#actions)
+- [Misc](https://github.com/sharedstreets/mashnet#misc)
+- [Install](https://github.com/sharedstreets/mashnet#install)
+- [Test](https://github.com/sharedstreets/mashnet#test)
+- [Coverage](https://github.com/sharedstreets/mashnet#coverage)
+- [Lint](https://github.com/sharedstreets/mashnet#lint)
+- [Train](https://github.com/sharedstreets/mashnet#train)
 
 ---
 
-## overview
+## Overview
 
 `Mashnet` is a street network conflation library, used to merge road graphs for mapping and routing. It is designed to work with both human mapped data and ML derived networks, aiming for clean and consistent merging, even with disparate input datasets. Use `mashnet` to detect missing edges in the road graph, and enhance existing edges with new metadata.
 
@@ -87,7 +88,9 @@ Add accepts a new street represented as a GeoJSON LineString Feature with proper
 ```js
 const street = {
   type: "Feature",
-  properties: {},
+  properties: {
+    "max_speed": 30
+  },
   geometry: {
     type: "LineString",
     coordinates: [
@@ -124,37 +127,33 @@ const honolulu = require('honolulu.json')
 net.fromJSON(honolulu)
 ```
 
-## model
+## Model
 
 Many types of geospatial data come in the form of geometry. Street networks are a special case of geospatial data that benefits from a graph data structure. This graph structure is an efficient representation that allows for links between features to be conveyed. For conflation, this is especially important, since adding streets to an existing network can cause changes to the network, such as splitting a street or inserting an intersection.
 
 - edge
-  - prefix: `e!`
   - id (unique)
   - list of vertex ids
 - vertex
-  - prefix: `v!`
   - id (unique)
   - x coordinate
   - y coordinate
 - node
-  - prefix: `n!`
   - id (matches unique vertex id)
   - list of connected edge ids
-- data
-  - prefix: `d!`
+- metadata
   - id (matches unique edge id)
-  - json blob or (possibly) fixed schema protobuf
-- pending
-  - prefix: `p!`
-  - id is a reserved edge id
-  - like an edge, but unmerged (potentially due to failure)
+  - json blob
+- nodetree
+  - RTree of nodes for quick scans
+- edgetree
+  - RTree of edges for quick scans
 
-## workflow
+## Workflow
 
 A conflation network can be created from scratch or with a bootstrapped graph from an existing network, such as OpenStreetMap or any other basemap that contains topological road links. After bootstrapping, new data is merged in iteratively, road by road. When adding a new street, we first look for an existing duplicate street. If one is found, the new street will be merged into the existing edge. If a match is not found, a new edge will be created and inserted into the graph.
 
-## actions
+## Actions
 
 - *constructor*
   - initialize an existing graph database or create a new one
@@ -188,7 +187,7 @@ A conflation network can be created from scratch or with a bootstrapped graph fr
   - if present, follow merge strategy (do nothing, use new, numeric average, etc)
   - merge may fail, in which case it will remain pending
 
-## misc
+## Misc
 
 - run as a library or a CLI
 - load existing basemap from disk or in memory store, if available
@@ -198,25 +197,25 @@ A conflation network can be created from scratch or with a bootstrapped graph fr
 - once all merges have been performed, dump database to disk format or upload to s3 if in browser
 - library will come with pre-computed match weights and normalization parameters for convenient deployment
 
-## install
+## Install
 
 ```sh
 npm i mashnet
 ```
 
-## test
+## Test
 
 ```sh
 npm t
 ```
 
-## coverage
+## Coverage
 
 ```sh
 npm run coverage
 ```
 
-## lint
+## Lint
 
 Runs a linter across codebase and automatically formats all code using [prettier](https://prettier.io).
 
@@ -224,7 +223,7 @@ Runs a linter across codebase and automatically formats all code using [prettier
 npm run lint
 ```
 
-## train
+## Train
 
 A pre-trained neural network is included with `mashnet`. A new network can be trained with custom parameters or training data.
 
