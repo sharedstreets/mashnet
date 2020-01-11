@@ -4,7 +4,7 @@ const turf = require("@turf/turf");
 
 const Mashnet = require("../src/index.js");
 
-test("mashnet", async t => {
+test("mashnet - scan", async t => {
   const honolulu = require(path.join(__dirname, "../samples/honolulu.json"));
 
   var net = new Mashnet(honolulu);
@@ -21,10 +21,27 @@ test("mashnet", async t => {
       ]
     }
   };
-  var result = net.match(addition);
+  var scores = net.scan(addition);
 
-  t.ok(result.length > 0, "found matches");
-  t.equal(result[0].line.type, "Feature", "result contains matched feature");
+  t.ok(scores.length > 0, "found matches");
+  t.equal(scores[0].line.type, "Feature", "result contains matched feature");
+
+  const isMatch = net.match(scores);
+
+  t.ok(isMatch, "returns a match score");
+
+  const metadata = {
+    max_speed: 70
+  };
+
+  net.merge(scores[0].id, metadata);
+
+  const edge = net.metadata.get(scores[0].id);
+  t.equal(
+    JSON.stringify(edge),
+    '{"highway":"residential","name":"Ala Akulikuli Street","max_speed":70}',
+    "metadata merged"
+  );
 
   t.done();
 });

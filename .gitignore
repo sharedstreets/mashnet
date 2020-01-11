@@ -63,3 +63,4 @@ typings/
 package-lock.json
 nc.osm.pbf
 nc.json
+ncdot.json

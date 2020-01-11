@@ -11,7 +11,7 @@
 - [Test](https://github.com/sharedstreets/mashnet#test)
 - [Coverage](https://github.com/sharedstreets/mashnet#coverage)
 - [Lint](https://github.com/sharedstreets/mashnet#lint)
-- [Train](https://github.com/sharedstreets/mashnet#train)
+- [Train](https://github.com/sharedstreets/mashnet#traine)
 
 ---
 

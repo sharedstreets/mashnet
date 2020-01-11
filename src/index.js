@@ -1,11 +1,14 @@
 const RTree = require("rbush");
 const turf = require("@turf/turf");
 const cover = require("@mapbox/tile-cover");
-let softmax = require("softmax-fn");
+const softmax = require("softmax-fn");
+const brain = require("brain.js");
 
+// set constants
 const DEG2RAD = Math.PI / 180.0;
 const RAD2DEG = 180.0 / Math.PI;
 
+// constructor
 const Mashnet = function(ways) {
   this.edges = new Map();
   this.vertices = new Map();
@@ -14,6 +17,14 @@ const Mashnet = function(ways) {
   this.nodetree = new RTree();
   this.edgetree = new RTree();
   this.pending = [];
+  this.nn = new brain.NeuralNetwork();
+
+  // load pretrained match model, if present
+  var matchModel;
+  try {
+    matchModel = require("../model/match.json");
+    this.nn.fromJSON(matchModel);
+  } catch (e) {}
 
   for (let way of ways) {
     if (way.geometry.coordinates.length === way.properties.refs.length) {
@@ -100,8 +111,8 @@ const Mashnet = function(ways) {
   edgeItems = null;
 };
 
-Mashnet.prototype.match = function(addition) {
-  // find matching edge
+Mashnet.prototype.scan = function(addition) {
+  // find matching edge candidates
 
   // get candidates
   var buffer = 0.01;
@@ -178,6 +189,24 @@ Mashnet.prototype.match = function(addition) {
   });
 
   return matches;
+};
+
+Mashnet.prototype.match = function(scores) {
+  if (!scores.length) {
+    return 0;
+  } else {
+    const prediction = this.nn.run({
+      distance: scores[0].distance,
+      scale: scores[0].scale,
+      straight: scores[0].straight,
+      curve: scores[0].curve,
+      scan: scores[0].scan,
+      terminal: scores[0].terminal,
+      bearing: scores[0].bearing,
+      softmax: scores[0].softmax
+    });
+    return prediction.match;
+  }
 };
 
 function compare(a, b) {
@@ -333,19 +362,19 @@ Mashnet.prototype.toJSON = function() {
 Mashnet.prototype.fromJSON = function(json) {
   // deserialize
   for (let edge of json.edges) {
-    this.set(edge[0], edge[1]);
+    this.edges.set(edge[0], edge[1]);
   }
   for (let vertex of json.vertices) {
-    this.set(vertex[0], vertex[1]);
+    this.vertices.set(vertex[0], vertex[1]);
   }
   for (let node of json.nodes) {
-    this.set(node[0], node[1]);
+    this.nodes.set(node[0], node[1]);
   }
   for (let data of json.metadata) {
-    this.set(data[0], data[1]);
+    this.metadata.set(data[0], data[1]);
   }
-  this.edgetree = rbush.fromJSON(json.edgetree);
-  this.nodetree = rbush.fromJSON(json.nodetree);
+  this.edgetree = this.edgetree.fromJSON(json.edgetree);
+  this.nodetree = this.nodetree.fromJSON(json.nodetree);
 };
 
 module.exports = Mashnet;
