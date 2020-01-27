@@ -212,7 +212,7 @@ Mashnet.prototype.match = function(scores) {
 function compare(a, b) {
   const maxDistance = Math.max(a.distance, b.distance);
   const minDistance = Math.min(a.distance, b.distance);
-  const scale = (a.distance + b.distance) / 100;
+  let scale = (a.distance + b.distance) / 100;
   if (scale > 1) scale = 1;
   const maxStraight = Math.max(a.straight, b.straight);
   const minStraight = Math.min(a.straight, b.straight);
