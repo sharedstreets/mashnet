@@ -1,19 +1,20 @@
-const test = require("tap").test;
-const path = require("path");
-const turf = require("@turf/turf");
+'use strict';
 
-const Mashnet = require("../src/index.js");
+const test = require('tap').test;
+const path = require('path');
 
-test("mashnet", async t => {
-  const honolulu = require(path.join(__dirname, "../samples/honolulu.json"));
+const Mashnet = require('../src/index.js');
 
-  var net = new Mashnet(honolulu);
+test('mashnet', async(t) => {
+  const honolulu = require(path.join(__dirname, '../samples/honolulu.json'));
 
-  var addition = {
-    type: "Feature",
+  const net = new Mashnet(honolulu);
+
+  const addition = {
+    type: 'Feature',
     properties: {},
     geometry: {
-      type: "LineString",
+      type: 'LineString',
       coordinates: [
         [-157.9146158695221, 21.346424354025306],
         [-157.9154634475708, 21.347043906401122],
@@ -24,16 +25,16 @@ test("mashnet", async t => {
 
   // scan
 
-  var scores = net.scan(addition);
+  const scores = net.scan(addition);
 
-  t.ok(scores.length > 0, "found matches");
-  t.equal(scores[0].line.type, "Feature", "result contains matched feature");
+  t.ok(scores.length > 0, 'found matches');
+  t.equal(scores[0].line.type, 'Feature', 'result contains matched feature');
 
   // match
 
   const isMatch = net.match(scores);
 
-  t.ok(isMatch, "returns a match score");
+  t.ok(isMatch, 'returns a match score');
 
   const metadata = {
     max_speed: 70
@@ -47,16 +48,16 @@ test("mashnet", async t => {
   t.equal(
     JSON.stringify(data),
     '{"highway":"residential","name":"Ala Akulikuli Street","max_speed":70}',
-    "metadata merged"
+    'metadata merged'
   );
 
   // add
 
-  var street = {
-    type: "Feature",
+  const street = {
+    type: 'Feature',
     properties: {},
     geometry: {
-      type: "LineString",
+      type: 'LineString',
       coordinates: [
         [-157.91604816913605, 21.35034147982776],
         [-157.91581213474274, 21.35018409732726],
