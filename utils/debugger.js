@@ -16,6 +16,9 @@ var actions = fs
     return line.length;
   })
   .map(JSON.parse);
+/*.filter(line => {
+    return line.type !== 'log';
+  });*/
 
 var render = html
   .split("{{token}}")
