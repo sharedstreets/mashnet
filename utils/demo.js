@@ -6,7 +6,7 @@ const Mashnet = require("../src/index.js");
 const honolulu = require(path.join(__dirname, "../samples/honolulu.json"));
 
 var net = new Mashnet(honolulu);
-
+/*
 var addition = {
   type: "Feature",
   properties: {},
@@ -24,7 +24,7 @@ var addition = {
 
 var scores = net.scan(addition);
 
-/*
+
 // match
 
 const isMatch = net.match(scores);
@@ -38,7 +38,7 @@ const metadata = {
 net.merge(scores[0].id, metadata);
 
 const data = net.metadata.get(scores[0].id);
-
+*/
 // add
 
 var street = {
@@ -58,4 +58,3 @@ var street = {
 };
 
 net.add(street);
-*/
