@@ -1,21 +1,23 @@
-const RTree = require("rbush");
-const turf = require("@turf/turf");
-const cover = require("@mapbox/tile-cover");
-const tilebelt = require("@mapbox/tilebelt");
-const softmax = require("softmax-fn");
-const brain = require("brain.js");
-const debug = require("./debug");
+'use strict';
+
+const RTree = require('rbush');
+const turf = require('@turf/turf');
+const cover = require('@mapbox/tile-cover');
+const tilebelt = require('@mapbox/tilebelt');
+const softmax = require('softmax-fn');
+const brain = require('brain.js');
+const debug = require('./debug');
 
 // set constants
-const UNITS = { units: "kilometers" };
+const UNITS = { units: 'kilometers' };
 const DEG2RAD = Math.PI / 180.0;
 const RAD2DEG = 180.0 / Math.PI;
 const MAX_NODE_SHIFT = 0.01;
 const MAX_VERTEX_SHIFT = 0.03;
-const DEBUG_COLOR_1 = "#ff66ff"; // pink
-const DEBUG_COLOR_2 = "#00ff00"; // green
-const DEBUG_COLOR_3 = "#66ffff"; // cyan
-const DEBUG_COLOR_4 = "#ff9900"; // orange
+const DEBUG_COLOR_1 = '#ff66ff'; // pink
+const DEBUG_COLOR_2 = '#00ff00'; // green
+const DEBUG_COLOR_3 = '#66ffff'; // cyan
+const DEBUG_COLOR_4 = '#ff9900'; // orange
 
 // constructor
 const Mashnet = function(ways) {
@@ -29,47 +31,49 @@ const Mashnet = function(ways) {
   this.nn = new brain.NeuralNetwork();
 
   // load pretrained match model, if present
-  var matchModel;
+  let matchModel;
   try {
-    matchModel = require("../model/match.json");
+    matchModel = require('../model/match.json');
     this.nn.fromJSON(matchModel);
-  } catch (e) {}
+  } catch (e) {
+    throw new Error('unable to load model');
+  }
 
-  for (let way of ways) {
+  for (const way of ways) {
     if (way.geometry.coordinates.length === way.properties.refs.length) {
       // setup vertices
-      var i = 0;
-      for (let ref of way.properties.refs) {
+      let i = 0;
+      for (const ref of way.properties.refs) {
         this.vertices.set(ref, way.geometry.coordinates[i]);
         i++;
       }
 
       // setup nodes
       //   start
-      var start = way.properties.refs[0];
-      var adjacent = this.nodes.get(start);
-      if (!adjacent) {
-        adjacent = new Set();
+      const start = way.properties.refs[0];
+      let adjacent_start = this.nodes.get(start);
+      if (!adjacent_start) {
+        adjacent_start = new Set();
       }
-      adjacent.add(way.properties.id);
-      this.nodes.set(start, adjacent);
+      adjacent_start.add(way.properties.id);
+      this.nodes.set(start, adjacent_start);
 
       //   end
-      var end = way.properties.refs[way.properties.refs.length - 1];
-      var adjacent = this.nodes.get(end);
-      if (!adjacent) {
-        adjacent = new Set();
+      const end = way.properties.refs[way.properties.refs.length - 1];
+      let adjacent_end = this.nodes.get(end);
+      if (!adjacent_end) {
+        adjacent_end = new Set();
       }
-      adjacent.add(way.properties.id);
-      this.nodes.set(end, adjacent);
+      adjacent_end.add(way.properties.id);
+      this.nodes.set(end, adjacent_end);
 
       // setup edges
       this.edges.set(way.properties.id, way.properties.refs);
 
       // setup metadata
-      var metadata = {};
-      for (let property of Object.keys(way.properties)) {
-        if (["id", "refs"].indexOf(property) === -1) {
+      const metadata = {};
+      for (const property of Object.keys(way.properties)) {
+        if (['id', 'refs'].indexOf(property) === -1) {
           metadata[property] = way.properties[property];
         }
       }
@@ -78,9 +82,9 @@ const Mashnet = function(ways) {
   }
 
   // setup nodetree
-  var nodeItems = [];
-  for (let node of this.nodes) {
-    var vertex = this.vertices.get(node[0]);
+  let nodeItems = [];
+  for (const node of this.nodes) {
+    const vertex = this.vertices.get(node[0]);
     const item = {
       minX: vertex[0],
       minY: vertex[1],
@@ -94,14 +98,14 @@ const Mashnet = function(ways) {
   nodeItems = null;
 
   // setup edgetree
-  var edgeItems = [];
-  for (let edge of this.edges) {
-    var minX = Infinity;
-    var minY = Infinity;
-    var maxX = -Infinity;
-    var maxY = -Infinity;
-    for (let ref of edge[1]) {
-      var vertex = this.vertices.get(ref);
+  let edgeItems = [];
+  for (const edge of this.edges) {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const ref of edge[1]) {
+      const vertex = this.vertices.get(ref);
       if (vertex[0] < minX) minX = vertex[0];
       if (vertex[1] < minY) minY = vertex[1];
       if (vertex[0] > maxX) maxX = vertex[0];
@@ -123,15 +127,15 @@ const Mashnet = function(ways) {
 Mashnet.prototype.scan = function(addition) {
   if (process.env.DEBUG) {
     debug({
-      type: "log",
-      message: "SCAN"
+      type: 'log',
+      message: 'SCAN'
     });
     debug({
-      type: "fit",
+      type: 'fit',
       bbox: turf.bbox(addition)
     });
     debug({
-      type: "draw",
+      type: 'draw',
       geometry: addition.geometry,
       style: {
         width: 4,
@@ -145,12 +149,12 @@ Mashnet.prototype.scan = function(addition) {
   // find matching edge candidates
 
   // get candidates
-  var buffer = 0.03;
-  var bbox = turf.bbox(addition);
-  var sw = turf.destination(turf.point(bbox.slice(0, 2)), buffer, 225, UNITS);
-  var ne = turf.destination(turf.point(bbox.slice(2, 4)), buffer, 45, UNITS);
+  const buffer = 0.03;
+  const bbox = turf.bbox(addition);
+  const sw = turf.destination(turf.point(bbox.slice(0, 2)), buffer, 225, UNITS);
+  const ne = turf.destination(turf.point(bbox.slice(2, 4)), buffer, 45, UNITS);
 
-  var candidates = this.edgetree.search({
+  const candidates = this.edgetree.search({
     minX: sw.geometry.coordinates[0],
     minY: sw.geometry.coordinates[1],
     maxX: ne.geometry.coordinates[0],
@@ -159,11 +163,11 @@ Mashnet.prototype.scan = function(addition) {
 
   if (process.env.DEBUG) {
     debug({
-      type: "fit",
+      type: 'fit',
       bbox: sw.geometry.coordinates.concat(ne.geometry.coordinates)
     });
     debug({
-      type: "draw",
+      type: 'draw',
       geometry: turf.lineString(turf.bboxPolygon(bbox).geometry.coordinates[0])
         .geometry,
       style: {
@@ -174,7 +178,7 @@ Mashnet.prototype.scan = function(addition) {
       fade: 3000
     });
     debug({
-      type: "draw",
+      type: 'draw',
       geometry: turf.lineString(
         turf.envelope(turf.featureCollection([sw, ne])).geometry.coordinates[0]
       ).geometry,
@@ -185,8 +189,8 @@ Mashnet.prototype.scan = function(addition) {
       }
     });
 
-    var boxes = [];
-    for (let candidate of candidates) {
+    const boxes = [];
+    for (const candidate of candidates) {
       boxes.push(
         turf.lineString(
           turf.bboxPolygon([
@@ -200,15 +204,15 @@ Mashnet.prototype.scan = function(addition) {
     }
     if (boxes.length) {
       debug({
-        type: "fit",
+        type: 'fit',
         bbox: turf.bbox(turf.multiLineString(boxes))
       });
       debug({
-        type: "draw",
+        type: 'draw',
         geometry: turf.multiLineString(boxes).geometry,
         style: {
           width: 0.3,
-          color: "#5AFF52",
+          color: '#5AFF52',
           opacity: 0.9
         },
         fade: 5000
@@ -217,24 +221,24 @@ Mashnet.prototype.scan = function(addition) {
   }
 
   // get scores
-  var a = heuristics(addition);
+  const a = heuristics(addition);
 
-  var matches = [];
-  for (let candidate of candidates) {
+  let matches = [];
+  for (const candidate of candidates) {
     const refs = this.edges.get(candidate.id);
     const coordinates = [];
-    for (let ref of refs) {
+    for (const ref of refs) {
       coordinates.push(this.vertices.get(ref));
     }
     const line = turf.lineString(coordinates);
 
     if (process.env.DEBUG) {
       debug({
-        type: "fit",
+        type: 'fit',
         bbox: turf.bbox(turf.featureCollection([sw, ne, line]))
       });
       debug({
-        type: "draw",
+        type: 'draw',
         geometry: turf.lineString(turf.envelope(line).geometry.coordinates[0])
           .geometry,
         style: {
@@ -245,7 +249,7 @@ Mashnet.prototype.scan = function(addition) {
         fade: 2000
       });
       debug({
-        type: "draw",
+        type: 'draw',
         geometry: line.geometry,
         style: {
           width: 4,
@@ -256,31 +260,31 @@ Mashnet.prototype.scan = function(addition) {
       });
     }
 
-    var b = heuristics(line);
-    var scores = compare(a, b);
+    const b = heuristics(line);
+    const scores = compare(a, b);
 
     if (process.env.DEBUG) {
       debug({
-        type: "log",
-        message: "---"
+        type: 'log',
+        message: '---'
       });
-      for (let s of Object.keys(scores)) {
+      for (const s of Object.keys(scores)) {
         debug({
-          type: "log",
-          message: s + ": " + scores[s].toFixed(6),
+          type: 'log',
+          message: s + ': ' + scores[s].toFixed(6),
           color:
-            "rgb(" +
+            'rgb(' +
             (100 + Math.round(Math.abs(scores[s] - 1) * 105)) +
-            "," +
+            ',' +
             (100 + Math.round(scores[s] * 50)) +
-            "," +
+            ',' +
             (100 + Math.round(scores[s] * 50)) +
-            ");"
+            ');'
         });
       }
     }
 
-    var weights = {
+    const weights = {
       distance: 1,
       scale: 1,
       straight: 1,
@@ -290,31 +294,31 @@ Mashnet.prototype.scan = function(addition) {
       bearing: 1
     };
 
-    var score = 0;
-    for (let s of Object.keys(scores)) {
+    let score = 0;
+    for (const s of Object.keys(scores)) {
       score += scores[s] * weights[s];
     }
 
     if (score > 0) {
-      var match = {
+      const match = {
         id: candidate.id,
         line: line,
         score: score
       };
-      for (let s of Object.keys(scores)) {
+      for (const s of Object.keys(scores)) {
         match[s] = scores[s];
       }
       matches.push(match);
     }
   }
 
-  var softmaxScores = softmax(
-    matches.map(match => {
+  const softmaxScores = softmax(
+    matches.map((match) => {
       return match.score;
     })
   );
-  var i = 0;
-  for (let sm of softmaxScores) {
+  let i = 0;
+  for (const sm of softmaxScores) {
     matches[i].softmax = sm;
     i++;
   }
@@ -325,10 +329,10 @@ Mashnet.prototype.scan = function(addition) {
 
   if (process.env.DEBUG) {
     debug({
-      type: "clear"
+      type: 'clear'
     });
     debug({
-      type: "draw",
+      type: 'draw',
       geometry: matches[0].line.geometry,
       style: {
         color: DEBUG_COLOR_3,
@@ -405,41 +409,41 @@ function bearingDistance(b1, b2) {
 }
 
 function similarity(a, b) {
-  var union = new Set();
-  for (let scan of a) {
+  const union = new Set();
+  for (const scan of a) {
     union.add(scan);
   }
-  for (let scan of b) {
+  for (const scan of b) {
     union.add(scan);
   }
-  var overlap = new Set();
-  for (let key of union) {
+  const overlap = new Set();
+  for (const key of union) {
     if (a.has(key) && b.has(key)) {
       overlap.add(key);
     }
   }
-  var sim = 0;
+  let sim = 0;
   if (union.size > 0) {
     sim = overlap.size / union.size;
   }
 
   if (process.env.DEBUG) {
-    var abCells = [];
-    var cCells = [];
+    const abCells = [];
+    const cCells = [];
 
-    for (let scan of a) {
+    for (const scan of a) {
       abCells.push(
         turf.bboxPolygon(tilebelt.tileToBBOX(tilebelt.quadkeyToTile(scan)))
           .geometry.coordinates[0]
       );
     }
-    for (let scan of b) {
+    for (const scan of b) {
       abCells.push(
         turf.bboxPolygon(tilebelt.tileToBBOX(tilebelt.quadkeyToTile(scan)))
           .geometry.coordinates[0]
       );
     }
-    for (let scan of overlap) {
+    for (const scan of overlap) {
       cCells.push(
         turf.bboxPolygon(tilebelt.tileToBBOX(tilebelt.quadkeyToTile(scan)))
           .geometry.coordinates[0]
@@ -447,7 +451,7 @@ function similarity(a, b) {
     }
 
     debug({
-      type: "draw",
+      type: 'draw',
       geometry: turf.multiLineString(abCells).geometry,
       style: {
         color: DEBUG_COLOR_3,
@@ -456,7 +460,7 @@ function similarity(a, b) {
       fade: 1000
     });
     debug({
-      type: "draw",
+      type: 'draw',
       geometry: turf.multiLineString(cCells).geometry,
       style: {
         color: DEBUG_COLOR_4,
@@ -470,24 +474,24 @@ function similarity(a, b) {
 }
 
 function heuristics(line) {
-  var buffer = 0.01;
-  var z = 24;
-  var zs = { min_zoom: z, max_zoom: z };
+  const buffer = 0.01;
+  const z = 24;
+  const zs = { min_zoom: z, max_zoom: z };
   const start = turf.point(line.geometry.coordinates[0]);
   const end = turf.point(
     line.geometry.coordinates[line.geometry.coordinates.length - 1]
   );
 
-  var distance = turf.lineDistance(line, UNITS);
-  var straight = turf.distance(start, end, UNITS);
-  var curve = straight / distance;
-  var indexes = cover.indexes(turf.buffer(line, buffer, UNITS).geometry, zs);
-  var scan = new Set();
-  for (let index of indexes) {
+  const distance = turf.lineDistance(line, UNITS);
+  const straight = turf.distance(start, end, UNITS);
+  const curve = straight / distance;
+  const indexes = cover.indexes(turf.buffer(line, buffer, UNITS).geometry, zs);
+  const scan = new Set();
+  for (const index of indexes) {
     scan.add(index);
   }
 
-  var terminalIndexes = cover.indexes(
+  const terminalIndexes = cover.indexes(
     turf.buffer(
       turf.multiPoint([
         line.geometry.coordinates[0],
@@ -498,8 +502,8 @@ function heuristics(line) {
     ).geometry,
     zs
   );
-  var terminal = new Set();
-  for (let index of terminalIndexes) {
+  const terminal = new Set();
+  for (const index of terminalIndexes) {
     terminal.add(index);
   }
 
@@ -518,8 +522,8 @@ function heuristics(line) {
 
 Mashnet.prototype.merge = function(existing, addition) {
   // merge existing edge
-  var metadata = this.metadata.get(existing);
-  for (let property of Object.keys(addition)) {
+  const metadata = this.metadata.get(existing);
+  for (const property of Object.keys(addition)) {
     metadata[property] = addition[property];
   }
   this.metadata.set(existing, metadata);
@@ -528,15 +532,15 @@ Mashnet.prototype.merge = function(existing, addition) {
 Mashnet.prototype.add = function(addition) {
   if (process.env.DEBUG) {
     debug({
-      type: "log",
-      message: "ADD"
+      type: 'log',
+      message: 'ADD'
     });
     debug({
-      type: "fit",
+      type: 'fit',
       bbox: turf.bbox(addition)
     });
     debug({
-      type: "draw",
+      type: 'draw',
       geometry: addition.geometry,
       style: {
         width: 4,
@@ -549,24 +553,24 @@ Mashnet.prototype.add = function(addition) {
 
   // add new edge
   // get candidates
-  var buffer = 0.01;
-  var bbox = turf.bbox(addition);
-  var sw = turf.destination(turf.point(bbox.slice(0, 2)), buffer, 225, UNITS);
-  var ne = turf.destination(turf.point(bbox.slice(2, 4)), buffer, 45, UNITS);
+  const buffer = 0.01;
+  const bbox = turf.bbox(addition);
+  const sw = turf.destination(turf.point(bbox.slice(0, 2)), buffer, 225, UNITS);
+  const ne = turf.destination(turf.point(bbox.slice(2, 4)), buffer, 45, UNITS);
 
-  var candidates = this.edgetree.search({
+  const candidates = this.edgetree.search({
     minX: sw.geometry.coordinates[0],
     minY: sw.geometry.coordinates[1],
     maxX: ne.geometry.coordinates[0],
     maxY: ne.geometry.coordinates[1]
   });
 
-  var nodes = new Map();
-  var vertices = new Map();
-  for (let candidate of candidates) {
+  const nodes = new Map();
+  const vertices = new Map();
+  for (const candidate of candidates) {
     const refs = this.edges.get(candidate.id);
 
-    for (let ref of refs) {
+    for (const ref of refs) {
       vertices.set(ref, turf.point(this.vertices.get(ref)));
     }
 
@@ -575,28 +579,28 @@ Mashnet.prototype.add = function(addition) {
   }
 
   if (process.env.DEBUG) {
-    var lines = [];
+    const lines = [];
 
-    for (let candidate of candidates) {
-      var coordinates = [];
+    for (const candidate of candidates) {
+      const coordinates = [];
       const refs = this.edges.get(candidate.id);
 
-      for (let ref of refs) {
+      for (const ref of refs) {
         coordinates.push(this.vertices.get(ref));
       }
       lines.push(coordinates);
     }
 
     debug({
-      type: "fit",
+      type: 'fit',
       bbox: turf.bbox(turf.multiLineString(lines))
     });
     debug({
-      type: "log",
-      message: candidates.length + " edge candidates"
+      type: 'log',
+      message: candidates.length + ' edge candidates'
     });
     debug({
-      type: "draw",
+      type: 'draw',
       geometry: turf.multiLineString(lines).geometry,
       style: {
         width: 2,
@@ -606,15 +610,15 @@ Mashnet.prototype.add = function(addition) {
       fade: 100000
     });
     debug({
-      type: "log",
-      message: vertices.size + " vertex candidates"
+      type: 'log',
+      message: vertices.size + ' vertex candidates'
     });
-    var vertexPts = [];
-    for (let vertex of vertices) {
+    const vertexPts = [];
+    for (const vertex of vertices) {
       vertexPts.push(vertex[1].geometry.coordinates);
     }
     debug({
-      type: "draw",
+      type: 'draw',
       geometry: turf.multiPoint(vertexPts).geometry,
       style: {
         width: 4,
@@ -625,15 +629,15 @@ Mashnet.prototype.add = function(addition) {
     });
 
     debug({
-      type: "log",
-      message: nodes.size + " node candidates"
+      type: 'log',
+      message: nodes.size + ' node candidates'
     });
-    var nodePts = [];
-    for (let node of nodes) {
+    const nodePts = [];
+    for (const node of nodes) {
       nodePts.push(node[1].geometry.coordinates);
     }
     debug({
-      type: "draw",
+      type: 'draw',
       geometry: turf.multiPoint(nodePts).geometry,
       style: {
         width: 8,
@@ -644,24 +648,24 @@ Mashnet.prototype.add = function(addition) {
     });
     debug({
       // todo: delete
-      type: "fit",
+      type: 'fit',
       bbox: turf.bbox(turf.multiLineString(lines))
     });
   }
 
   const steps = [];
-  for (let coordinate of addition.geometry.coordinates) {
+  for (const coordinate of addition.geometry.coordinates) {
     const nodeDistances = [];
     const vertexDistances = [];
     const pt = turf.point(coordinate);
-    for (let node of nodes) {
+    for (const node of nodes) {
       const distance = turf.distance(pt, node[1]);
       nodeDistances.push({
         id: node[0],
         distance: distance
       });
     }
-    for (let vertex of vertices) {
+    for (const vertex of vertices) {
       const distance = turf.distance(pt, vertex[1]);
       vertexDistances.push({
         id: vertex[0],
@@ -674,8 +678,8 @@ Mashnet.prototype.add = function(addition) {
     vertexDistances.sort((a, b) => {
       return a.distance - b.distance;
     });
-    var closestNode;
-    var closestVertex;
+    let closestNode;
+    let closestVertex;
     if (nodeDistances.length) {
       closestNode = nodeDistances[0];
     }
@@ -684,13 +688,13 @@ Mashnet.prototype.add = function(addition) {
     }
 
     if (process.env.DEBUG) {
-      for (item of nodeDistances) {
-        var line = turf.lineString([
+      for (const item of nodeDistances) {
+        const line = turf.lineString([
           coordinate,
           nodes.get(item.id).geometry.coordinates
         ]);
         debug({
-          type: "draw",
+          type: 'draw',
           geometry: line.geometry,
           style: {
             width: 1,
@@ -701,13 +705,13 @@ Mashnet.prototype.add = function(addition) {
         });
       }
 
-      for (item of vertexDistances) {
-        var line = turf.lineString([
+      for (const item of vertexDistances) {
+        const line = turf.lineString([
           coordinate,
           vertices.get(item.id).geometry.coordinates
         ]);
         debug({
-          type: "draw",
+          type: 'draw',
           geometry: line.geometry,
           style: {
             width: 1,
@@ -722,7 +726,7 @@ Mashnet.prototype.add = function(addition) {
     if (closestNode.distance <= MAX_NODE_SHIFT) {
       if (process.env.DEBUG) {
         debug({
-          type: "draw",
+          type: 'draw',
           geometry: nodes.get(closestNode.id).geometry,
           style: {
             width: 20,
@@ -733,14 +737,14 @@ Mashnet.prototype.add = function(addition) {
         });
       }
       steps.push({
-        type: "node",
+        type: 'node',
         id: closestNode.id
       });
       continue;
     } else if (closestVertex.distance <= MAX_VERTEX_SHIFT) {
       if (process.env.DEBUG) {
         debug({
-          type: "draw",
+          type: 'draw',
           geometry: vertices.get(closestVertex.id).geometry,
           style: {
             width: 20,
@@ -751,38 +755,38 @@ Mashnet.prototype.add = function(addition) {
         });
       }
       steps.push({
-        type: "vertex",
+        type: 'vertex',
         id: closestVertex.id
       });
       continue;
     } else {
       steps.push({
-        type: "insert",
-        id: "n?" + this.id++,
+        type: 'insert',
+        id: 'n?' + this.id++,
         coordinate: coordinate
       });
       continue;
     }
   }
 
-  var next = steps.shift();
-  var insert = [next];
+  let next = steps.shift();
+  let insert = [next];
   while (steps.length) {
     next = steps.shift();
     if (next) {
       insert.push(next);
 
-      if (next.type === "node" || next.type === "vertex") {
+      if (next.type === 'node' || next.type === 'vertex') {
         // insert edge
-        const id = "e?" + this.id++;
+        const id = 'e?' + this.id++;
         const refs = [];
-        for (item of insert) {
+        for (const item of insert) {
           refs.push(item.id);
         }
         this.edges.set(id, refs);
 
         // normalize
-        var start = this.nodes.get(refs[0]);
+        const start = this.nodes.get(refs[0]);
         if (start) {
           // update existing node
           start.add(id);
@@ -791,12 +795,14 @@ Mashnet.prototype.add = function(addition) {
           // create new node
           this.nodes.set(next.id, new Set());
           // split edges
-          for (let candidate of candidates) {
+
+          /*  todo: split edges if a vertex was upgraded
+          for (const candidate of candidates) {
             const candidateRefs = this.edges.get(candidate.id);
-            // todo: split edges if a vertex was upgraded
           }
+          */
         }
-        var end = this.nodes.get(refs[refs.length - 1]);
+        const end = this.nodes.get(refs[refs.length - 1]);
         if (end) {
           // update existing node
           end.add(id);
@@ -804,11 +810,13 @@ Mashnet.prototype.add = function(addition) {
         } else {
           // create new node
           this.nodes.set(next.id, new Set());
+
           // split edges
-          for (let candidate of candidates) {
+          /* todo: split edges if a vertex was upgraded
+          for (const candidate of candidates) {
             const candidateRefs = this.edges.get(candidate.id);
-            // todo: split edges if a vertex was upgraded
           }
+          */
         }
 
         // new edge
@@ -820,7 +828,7 @@ Mashnet.prototype.add = function(addition) {
 
 Mashnet.prototype.toJSON = function() {
   // serialize
-  var json = {
+  const json = {
     edges: [],
     vertices: [],
     nodes: [],
@@ -830,16 +838,16 @@ Mashnet.prototype.toJSON = function() {
     id: this.id
   };
 
-  for (let edge of this.edges) {
+  for (const edge of this.edges) {
     json.edges.push(edge);
   }
-  for (let vertex of this.vertices) {
+  for (const vertex of this.vertices) {
     json.vertices.push(vertex);
   }
-  for (let node of this.nodes) {
+  for (const node of this.nodes) {
     json.nodes.push(node);
   }
-  for (let data of this.metadata) {
+  for (const data of this.metadata) {
     json.metadata.push(data);
   }
 
@@ -848,16 +856,16 @@ Mashnet.prototype.toJSON = function() {
 
 Mashnet.prototype.fromJSON = function(json) {
   // deserialize
-  for (let edge of json.edges) {
+  for (const edge of json.edges) {
     this.edges.set(edge[0], edge[1]);
   }
-  for (let vertex of json.vertices) {
+  for (const vertex of json.vertices) {
     this.vertices.set(vertex[0], vertex[1]);
   }
-  for (let node of json.nodes) {
+  for (const node of json.nodes) {
     this.nodes.set(node[0], node[1]);
   }
-  for (let data of json.metadata) {
+  for (const data of json.metadata) {
     this.metadata.set(data[0], data[1]);
   }
   this.edgetree = this.edgetree.fromJSON(json.edgetree);
