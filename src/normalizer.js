@@ -1,3 +1,4 @@
+/* eslint-disable */
 // FORKED FROM https://github.com/mapbox/graph-normalizer
 
 var lineString = require("turf-linestring");

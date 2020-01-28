@@ -1,11 +1,12 @@
-const path = require("path");
-const turf = require("@turf/turf");
+'use strict';
 
-const Mashnet = require("../src/index.js");
+const path = require('path');
 
-const honolulu = require(path.join(__dirname, "../samples/honolulu.json"));
+const Mashnet = require('../src/index.js');
 
-var net = new Mashnet(honolulu);
+const honolulu = require(path.join(__dirname, '../samples/honolulu.json'));
+
+const net = new Mashnet(honolulu);
 /*
 var addition = {
   type: "Feature",
@@ -41,11 +42,11 @@ const data = net.metadata.get(scores[0].id);
 */
 // add
 
-var street = {
-  type: "Feature",
+const street = {
+  type: 'Feature',
   properties: {},
   geometry: {
-    type: "LineString",
+    type: 'LineString',
     coordinates: [
       [-157.91604816913605, 21.35034147982776],
       [-157.91581213474274, 21.35018409732726],
