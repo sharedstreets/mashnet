@@ -4,7 +4,7 @@ const turf = require("@turf/turf");
 
 const Mashnet = require("../src/index.js");
 
-test("mashnet - scan", async t => {
+test("mashnet", async t => {
   const honolulu = require(path.join(__dirname, "../samples/honolulu.json"));
 
   var net = new Mashnet(honolulu);
@@ -21,10 +21,15 @@ test("mashnet - scan", async t => {
       ]
     }
   };
+
+  // scan
+
   var scores = net.scan(addition);
 
   t.ok(scores.length > 0, "found matches");
   t.equal(scores[0].line.type, "Feature", "result contains matched feature");
+
+  // match
 
   const isMatch = net.match(scores);
 
@@ -34,14 +39,36 @@ test("mashnet - scan", async t => {
     max_speed: 70
   };
 
+  // merge
+
   net.merge(scores[0].id, metadata);
 
-  const edge = net.metadata.get(scores[0].id);
+  const data = net.metadata.get(scores[0].id);
   t.equal(
-    JSON.stringify(edge),
+    JSON.stringify(data),
     '{"highway":"residential","name":"Ala Akulikuli Street","max_speed":70}',
     "metadata merged"
   );
+
+  // add
+
+  var street = {
+    type: "Feature",
+    properties: {},
+    geometry: {
+      type: "LineString",
+      coordinates: [
+        [-157.91604816913605, 21.35034147982776],
+        [-157.91581213474274, 21.35018409732726],
+        [-157.91565924882886, 21.350114149495003],
+        [-157.91538298130035, 21.349984246289427],
+        [-157.9150503873825, 21.34975441725907],
+        [-157.91475266218185, 21.349584543396308]
+      ]
+    }
+  };
+
+  net.add(street);
 
   t.done();
 });

@@ -1,12 +1,21 @@
 const RTree = require("rbush");
 const turf = require("@turf/turf");
 const cover = require("@mapbox/tile-cover");
+const tilebelt = require("@mapbox/tilebelt");
 const softmax = require("softmax-fn");
 const brain = require("brain.js");
+const debug = require("./debug");
 
 // set constants
+const UNITS = { units: "kilometers" };
 const DEG2RAD = Math.PI / 180.0;
 const RAD2DEG = 180.0 / Math.PI;
+const MAX_NODE_SHIFT = 0.01;
+const MAX_VERTEX_SHIFT = 0.03;
+const DEBUG_COLOR_1 = "#ff66ff"; // pink
+const DEBUG_COLOR_2 = "#00ff00"; // green
+const DEBUG_COLOR_3 = "#66ffff"; // cyan
+const DEBUG_COLOR_4 = "#ff9900"; // orange
 
 // constructor
 const Mashnet = function(ways) {
@@ -16,7 +25,7 @@ const Mashnet = function(ways) {
   this.metadata = new Map();
   this.nodetree = new RTree();
   this.edgetree = new RTree();
-  this.pending = [];
+  this.id = 0;
   this.nn = new brain.NeuralNetwork();
 
   // load pretrained match model, if present
@@ -112,17 +121,34 @@ const Mashnet = function(ways) {
 };
 
 Mashnet.prototype.scan = function(addition) {
+  if (process.env.DEBUG) {
+    debug({
+      type: "log",
+      message: "SCAN"
+    });
+    debug({
+      type: "fit",
+      bbox: turf.bbox(addition)
+    });
+    debug({
+      type: "draw",
+      geometry: addition.geometry,
+      style: {
+        width: 4,
+        color: DEBUG_COLOR_1,
+        opacity: 0.7
+      },
+      fade: 100000
+    });
+  }
+
   // find matching edge candidates
 
   // get candidates
-  var buffer = 0.01;
+  var buffer = 0.03;
   var bbox = turf.bbox(addition);
-  var sw = turf.destination(turf.point(bbox.slice(0, 2)), buffer, 225, {
-    units: "kilometers"
-  });
-  var ne = turf.destination(turf.point(bbox.slice(2, 4)), buffer, 45, {
-    units: "kilometers"
-  });
+  var sw = turf.destination(turf.point(bbox.slice(0, 2)), buffer, 225, UNITS);
+  var ne = turf.destination(turf.point(bbox.slice(2, 4)), buffer, 45, UNITS);
 
   var candidates = this.edgetree.search({
     minX: sw.geometry.coordinates[0],
@@ -130,6 +156,65 @@ Mashnet.prototype.scan = function(addition) {
     maxX: ne.geometry.coordinates[0],
     maxY: ne.geometry.coordinates[1]
   });
+
+  if (process.env.DEBUG) {
+    debug({
+      type: "fit",
+      bbox: sw.geometry.coordinates.concat(ne.geometry.coordinates)
+    });
+    debug({
+      type: "draw",
+      geometry: turf.lineString(turf.bboxPolygon(bbox).geometry.coordinates[0])
+        .geometry,
+      style: {
+        width: 0.5,
+        color: DEBUG_COLOR_2,
+        opacity: 0.9
+      },
+      fade: 3000
+    });
+    debug({
+      type: "draw",
+      geometry: turf.lineString(
+        turf.envelope(turf.featureCollection([sw, ne])).geometry.coordinates[0]
+      ).geometry,
+      style: {
+        width: 0.8,
+        color: DEBUG_COLOR_2,
+        opacity: 0.6
+      }
+    });
+
+    var boxes = [];
+    for (let candidate of candidates) {
+      boxes.push(
+        turf.lineString(
+          turf.bboxPolygon([
+            candidate.minX,
+            candidate.minY,
+            candidate.maxX,
+            candidate.maxY
+          ]).geometry.coordinates[0]
+        ).geometry.coordinates
+      );
+    }
+    if (boxes.length) {
+      debug({
+        type: "fit",
+        bbox: turf.bbox(turf.multiLineString(boxes))
+      });
+      debug({
+        type: "draw",
+        geometry: turf.multiLineString(boxes).geometry,
+        style: {
+          width: 0.3,
+          color: "#5AFF52",
+          opacity: 0.9
+        },
+        fade: 5000
+      });
+    }
+  }
 
   // get scores
   var a = heuristics(addition);
@@ -142,8 +227,58 @@ Mashnet.prototype.scan = function(addition) {
       coordinates.push(this.vertices.get(ref));
     }
     const line = turf.lineString(coordinates);
+
+    if (process.env.DEBUG) {
+      debug({
+        type: "fit",
+        bbox: turf.bbox(turf.featureCollection([sw, ne, line]))
+      });
+      debug({
+        type: "draw",
+        geometry: turf.lineString(turf.envelope(line).geometry.coordinates[0])
+          .geometry,
+        style: {
+          width: 0.5,
+          color: DEBUG_COLOR_2,
+          opacity: 0.95
+        },
+        fade: 2000
+      });
+      debug({
+        type: "draw",
+        geometry: line.geometry,
+        style: {
+          width: 4,
+          color: DEBUG_COLOR_2,
+          opacity: 0.7
+        },
+        fade: 2000
+      });
+    }
+
     var b = heuristics(line);
     var scores = compare(a, b);
+
+    if (process.env.DEBUG) {
+      debug({
+        type: "log",
+        message: "---"
+      });
+      for (let s of Object.keys(scores)) {
+        debug({
+          type: "log",
+          message: s + ": " + scores[s].toFixed(6),
+          color:
+            "rgb(" +
+            (100 + Math.round(Math.abs(scores[s] - 1) * 105)) +
+            "," +
+            (100 + Math.round(scores[s] * 50)) +
+            "," +
+            (100 + Math.round(scores[s] * 50)) +
+            ");"
+        });
+      }
+    }
 
     var weights = {
       distance: 1,
@@ -187,6 +322,22 @@ Mashnet.prototype.scan = function(addition) {
   matches = matches.sort((a, b) => {
     return b.softmax - a.softmax;
   });
+
+  if (process.env.DEBUG) {
+    debug({
+      type: "clear"
+    });
+    debug({
+      type: "draw",
+      geometry: matches[0].line.geometry,
+      style: {
+        color: DEBUG_COLOR_3,
+        width: 7,
+        opacity: 0.9
+      },
+      fade: 6000
+    });
+  }
 
   return matches;
 };
@@ -271,12 +422,55 @@ function similarity(a, b) {
   if (union.size > 0) {
     sim = overlap.size / union.size;
   }
+
+  if (process.env.DEBUG) {
+    var abCells = [];
+    var cCells = [];
+
+    for (let scan of a) {
+      abCells.push(
+        turf.bboxPolygon(tilebelt.tileToBBOX(tilebelt.quadkeyToTile(scan)))
+          .geometry.coordinates[0]
+      );
+    }
+    for (let scan of b) {
+      abCells.push(
+        turf.bboxPolygon(tilebelt.tileToBBOX(tilebelt.quadkeyToTile(scan)))
+          .geometry.coordinates[0]
+      );
+    }
+    for (let scan of overlap) {
+      cCells.push(
+        turf.bboxPolygon(tilebelt.tileToBBOX(tilebelt.quadkeyToTile(scan)))
+          .geometry.coordinates[0]
+      );
+    }
+
+    debug({
+      type: "draw",
+      geometry: turf.multiLineString(abCells).geometry,
+      style: {
+        color: DEBUG_COLOR_3,
+        opacity: 0.8
+      },
+      fade: 1000
+    });
+    debug({
+      type: "draw",
+      geometry: turf.multiLineString(cCells).geometry,
+      style: {
+        color: DEBUG_COLOR_4,
+        opacity: 0.8
+      },
+      fade: 2500
+    });
+  }
+
   return sim;
 }
 
 function heuristics(line) {
   var buffer = 0.01;
-  var units = { units: "kilometers" };
   var z = 24;
   var zs = { min_zoom: z, max_zoom: z };
   const start = turf.point(line.geometry.coordinates[0]);
@@ -284,22 +478,23 @@ function heuristics(line) {
     line.geometry.coordinates[line.geometry.coordinates.length - 1]
   );
 
-  var distance = turf.lineDistance(line, units);
-  var straight = turf.distance(start, end, units);
+  var distance = turf.lineDistance(line, UNITS);
+  var straight = turf.distance(start, end, UNITS);
   var curve = straight / distance;
-  var indexes = cover.indexes(turf.buffer(line, buffer, units).geometry, zs);
+  var indexes = cover.indexes(turf.buffer(line, buffer, UNITS).geometry, zs);
   var scan = new Set();
   for (let index of indexes) {
     scan.add(index);
   }
+
   var terminalIndexes = cover.indexes(
     turf.buffer(
       turf.multiPoint([
         line.geometry.coordinates[0],
         line.geometry.coordinates[line.geometry.coordinates.length - 1]
       ]),
-      buffer,
-      units
+      buffer * 2,
+      UNITS
     ).geometry,
     zs
   );
@@ -307,9 +502,11 @@ function heuristics(line) {
   for (let index of terminalIndexes) {
     terminal.add(index);
   }
+
   const bearing = turf.bearing(start, end);
 
   return {
+    line: line,
     distance: distance,
     straight: straight,
     curve: curve,
@@ -328,8 +525,133 @@ Mashnet.prototype.merge = function(existing, addition) {
   this.metadata.set(existing, metadata);
 };
 
-Mashnet.prototype.add = function() {
+Mashnet.prototype.add = function(addition) {
   // add new edge
+  // get candidates
+  var buffer = 0.01;
+  var bbox = turf.bbox(addition);
+  var sw = turf.destination(turf.point(bbox.slice(0, 2)), buffer, 225, UNITS);
+  var ne = turf.destination(turf.point(bbox.slice(2, 4)), buffer, 45, UNITS);
+
+  var candidates = this.edgetree.search({
+    minX: sw.geometry.coordinates[0],
+    minY: sw.geometry.coordinates[1],
+    maxX: ne.geometry.coordinates[0],
+    maxY: ne.geometry.coordinates[1]
+  });
+
+  var nodes = new Map();
+  var vertices = new Map();
+  for (let candidate of candidates) {
+    const refs = this.edges.get(candidate.id);
+
+    for (let ref of refs) {
+      vertices.set(ref, turf.point(this.vertices.get(ref)));
+    }
+
+    nodes.set(refs[0], vertices.get(refs[0]));
+    nodes.set(refs[refs.length - 1], vertices.get(refs[refs.length - 1]));
+  }
+
+  const steps = [];
+  for (let coordinate of addition.geometry.coordinates) {
+    const nodeDistances = [];
+    const vertexDistances = [];
+    const pt = turf.point(coordinate);
+    for (let node of nodes) {
+      const distance = turf.distance(pt, node[1]);
+      nodeDistances.push({
+        id: node[0],
+        distance: distance
+      });
+    }
+    for (let vertex of vertices) {
+      const distance = turf.distance(pt, vertex[1]);
+      vertexDistances.push({
+        id: vertex[0],
+        distance: distance
+      });
+    }
+    nodeDistances.sort((a, b) => {
+      return a.distance - b.distance;
+    });
+    vertexDistances.sort((a, b) => {
+      return a.distance - b.distance;
+    });
+    var closestNode;
+    var closestVertex;
+    if (nodeDistances.length) {
+      closestNode = nodeDistances[0];
+    }
+    if (vertexDistances.length) {
+      closestVertex = vertexDistances[0];
+    }
+
+    if (closestNode.distance <= MAX_NODE_SHIFT) {
+      steps.push({
+        type: "node",
+        id: closestNode.id
+      });
+      continue;
+    } else if (closestVertex.distance <= MAX_VERTEX_SHIFT) {
+      steps.push({
+        type: "vertex",
+        id: closestVertex.id
+      });
+      continue;
+    } else {
+      steps.push({
+        type: "insert",
+        id: "n?" + this.id++,
+        coordinate: coordinate
+      });
+      continue;
+    }
+  }
+
+  var next = steps.shift();
+  var insert = [next];
+  while (steps.length) {
+    next = steps.shift();
+    if (next) {
+      insert.push(next);
+
+      if (next.type === "node" || next.type === "vertex") {
+        // insert edge
+        const id = "e?" + this.id++;
+        const refs = [];
+        for (item of insert) {
+          refs.push(item.id);
+        }
+        this.edges.set(id, refs);
+
+        var start = this.nodes.get(refs[0]);
+        if (start) {
+          start.add(id);
+          this.nodes.set(refs[0], start);
+        } else {
+          // create new node
+          this.nodes.set(next.id, new Set());
+          // split edges
+          for (let candidate of candidates) {
+            const candidateRefs = this.edges.get(candidate.id);
+          }
+        }
+        var end = this.nodes.get(refs[refs.length - 1]);
+        if (end) {
+          end.add(id);
+          this.nodes.set(refs[refs.length - 1], end);
+        } else {
+          // create new node
+          this.nodes.set(next.id, new Set());
+          // split edges
+        }
+
+        // new edge
+        insert = [next];
+      }
+    }
+  }
 };
 
 Mashnet.prototype.toJSON = function() {
@@ -340,7 +662,8 @@ Mashnet.prototype.toJSON = function() {
     nodes: [],
     metadata: [],
     nodetree: this.nodetree.toJSON(),
-    edgetree: this.edgetree.toJSON()
+    edgetree: this.edgetree.toJSON(),
+    id: this.id
   };
 
   for (let edge of this.edges) {
@@ -375,6 +698,7 @@ Mashnet.prototype.fromJSON = function(json) {
   }
   this.edgetree = this.edgetree.fromJSON(json.edgetree);
   this.nodetree = this.nodetree.fromJSON(json.nodetree);
+  this.id = json.id;
 };
 
 module.exports = Mashnet;
