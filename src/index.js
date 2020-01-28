@@ -526,6 +526,27 @@ Mashnet.prototype.merge = function(existing, addition) {
 };
 
 Mashnet.prototype.add = function(addition) {
+  if (process.env.DEBUG) {
+    debug({
+      type: "log",
+      message: "ADD"
+    });
+    debug({
+      type: "fit",
+      bbox: turf.bbox(addition)
+    });
+    debug({
+      type: "draw",
+      geometry: addition.geometry,
+      style: {
+        width: 4,
+        color: DEBUG_COLOR_1,
+        opacity: 0.7
+      },
+      fade: 100000
+    });
+  }
+
   // add new edge
   // get candidates
   var buffer = 0.01;
@@ -551,6 +572,81 @@ Mashnet.prototype.add = function(addition) {
 
     nodes.set(refs[0], vertices.get(refs[0]));
     nodes.set(refs[refs.length - 1], vertices.get(refs[refs.length - 1]));
+  }
+
+  if (process.env.DEBUG) {
+    var lines = [];
+
+    for (let candidate of candidates) {
+      var coordinates = [];
+      const refs = this.edges.get(candidate.id);
+
+      for (let ref of refs) {
+        coordinates.push(this.vertices.get(ref));
+      }
+      lines.push(coordinates);
+    }
+
+    debug({
+      type: "fit",
+      bbox: turf.bbox(turf.multiLineString(lines))
+    });
+    debug({
+      type: "log",
+      message: candidates.length + " edge candidates"
+    });
+    debug({
+      type: "draw",
+      geometry: turf.multiLineString(lines).geometry,
+      style: {
+        width: 2,
+        color: DEBUG_COLOR_2,
+        opacity: 0.7
+      },
+      fade: 100000
+    });
+    debug({
+      type: "log",
+      message: vertices.size + " vertex candidates"
+    });
+    var vertexPts = [];
+    for (let vertex of vertices) {
+      vertexPts.push(vertex[1].geometry.coordinates);
+    }
+    debug({
+      type: "draw",
+      geometry: turf.multiPoint(vertexPts).geometry,
+      style: {
+        width: 4,
+        color: DEBUG_COLOR_2,
+        opacity: 0.7
+      },
+      fade: 100000
+    });
+
+    debug({
+      type: "log",
+      message: nodes.size + " node candidates"
+    });
+    var nodePts = [];
+    for (let node of nodes) {
+      nodePts.push(node[1].geometry.coordinates);
+    }
+    debug({
+      type: "draw",
+      geometry: turf.multiPoint(nodePts).geometry,
+      style: {
+        width: 8,
+        color: DEBUG_COLOR_3,
+        opacity: 0.7
+      },
+      fade: 100000
+    });
+    debug({
+      // todo: delete
+      type: "fit",
+      bbox: turf.bbox(turf.multiLineString(lines))
+    });
   }
 
   const steps = [];
@@ -587,13 +683,73 @@ Mashnet.prototype.add = function(addition) {
       closestVertex = vertexDistances[0];
     }
 
+    if (process.env.DEBUG) {
+      for (item of nodeDistances) {
+        var line = turf.lineString([
+          coordinate,
+          nodes.get(item.id).geometry.coordinates
+        ]);
+        debug({
+          type: "draw",
+          geometry: line.geometry,
+          style: {
+            width: 1,
+            color: DEBUG_COLOR_1,
+            opacity: 0.9
+          },
+          fade: 3000
+        });
+      }
+
+      for (item of vertexDistances) {
+        var line = turf.lineString([
+          coordinate,
+          vertices.get(item.id).geometry.coordinates
+        ]);
+        debug({
+          type: "draw",
+          geometry: line.geometry,
+          style: {
+            width: 1,
+            color: DEBUG_COLOR_4,
+            opacity: 0.9
+          },
+          fade: 3000
+        });
+      }
+    }
+
     if (closestNode.distance <= MAX_NODE_SHIFT) {
+      if (process.env.DEBUG) {
+        debug({
+          type: "draw",
+          geometry: nodes.get(closestNode.id).geometry,
+          style: {
+            width: 20,
+            color: DEBUG_COLOR_1,
+            opacity: 0.9
+          },
+          fade: 8000
+        });
+      }
       steps.push({
         type: "node",
         id: closestNode.id
       });
       continue;
     } else if (closestVertex.distance <= MAX_VERTEX_SHIFT) {
+      if (process.env.DEBUG) {
+        debug({
+          type: "draw",
+          geometry: vertices.get(closestVertex.id).geometry,
+          style: {
+            width: 20,
+            color: DEBUG_COLOR_1,
+            opacity: 0.9
+          },
+          fade: 8000
+        });
+      }
       steps.push({
         type: "vertex",
         id: closestVertex.id
@@ -625,8 +781,10 @@ Mashnet.prototype.add = function(addition) {
         }
         this.edges.set(id, refs);
 
+        // normalize
         var start = this.nodes.get(refs[0]);
         if (start) {
+          // update existing node
           start.add(id);
           this.nodes.set(refs[0], start);
         } else {
@@ -635,16 +793,22 @@ Mashnet.prototype.add = function(addition) {
           // split edges
           for (let candidate of candidates) {
             const candidateRefs = this.edges.get(candidate.id);
+            // todo: split edges if a vertex was upgraded
           }
         }
         var end = this.nodes.get(refs[refs.length - 1]);
         if (end) {
+          // update existing node
           end.add(id);
           this.nodes.set(refs[refs.length - 1], end);
         } else {
           // create new node
           this.nodes.set(next.id, new Set());
           // split edges
+          for (let candidate of candidates) {
+            const candidateRefs = this.edges.get(candidate.id);
+            // todo: split edges if a vertex was upgraded
+          }
         }
 
         // new edge
