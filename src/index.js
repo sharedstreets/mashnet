@@ -12,6 +12,10 @@ const DEG2RAD = Math.PI / 180.0;
 const RAD2DEG = 180.0 / Math.PI;
 const MAX_NODE_SHIFT = 0.01;
 const MAX_VERTEX_SHIFT = 0.03;
+const DEBUG_COLOR_1 = "#ff66ff"; // pink
+const DEBUG_COLOR_2 = "#00ff00"; // green
+const DEBUG_COLOR_3 = "#66ffff"; // cyan
+const DEBUG_COLOR_4 = "#ff9900"; // orange
 
 // constructor
 const Mashnet = function(ways) {
@@ -131,7 +135,7 @@ Mashnet.prototype.scan = function(addition) {
       geometry: addition.geometry,
       style: {
         width: 4,
-        color: "#f0f",
+        color: DEBUG_COLOR_1,
         opacity: 0.7
       },
       fade: 100000
@@ -164,7 +168,7 @@ Mashnet.prototype.scan = function(addition) {
         .geometry,
       style: {
         width: 0.5,
-        color: "#ff0",
+        color: DEBUG_COLOR_2,
         opacity: 0.9
       },
       fade: 3000
@@ -176,7 +180,7 @@ Mashnet.prototype.scan = function(addition) {
       ).geometry,
       style: {
         width: 0.8,
-        color: "#ff0",
+        color: DEBUG_COLOR_2,
         opacity: 0.6
       }
     });
@@ -199,10 +203,11 @@ Mashnet.prototype.scan = function(addition) {
         type: "draw",
         geometry: turf.multiLineString(boxes).geometry,
         style: {
-          width: 0.5,
+          width: 0.3,
           color: "#5AFF52",
-          opacity: 0.6
-        }
+          opacity: 0.9
+        },
+        fade: 5000
       });
     }
   }
@@ -218,8 +223,58 @@ Mashnet.prototype.scan = function(addition) {
       coordinates.push(this.vertices.get(ref));
     }
     const line = turf.lineString(coordinates);
+
+    if (process.env.DEBUG) {
+      debug({
+        type: "fit",
+        bbox: turf.bbox(turf.featureCollection([sw, ne, line]))
+      });
+      debug({
+        type: "draw",
+        geometry: turf.lineString(turf.envelope(line).geometry.coordinates[0])
+          .geometry,
+        style: {
+          width: 0.5,
+          color: DEBUG_COLOR_2,
+          opacity: 0.95
+        },
+        fade: 2000
+      });
+      debug({
+        type: "draw",
+        geometry: line.geometry,
+        style: {
+          width: 4,
+          color: DEBUG_COLOR_2,
+          opacity: 0.7
+        },
+        fade: 2000
+      });
+    }
+
     var b = heuristics(line);
     var scores = compare(a, b);
+
+    if (process.env.DEBUG) {
+      debug({
+        type: "log",
+        message: "---"
+      });
+      for (let s of Object.keys(scores)) {
+        debug({
+          type: "log",
+          message: s + ": " + scores[s].toFixed(6),
+          color:
+            "rgb(" +
+            (100 + Math.round(Math.abs(scores[s] - 1) * 105)) +
+            "," +
+            (100 + Math.round(scores[s] * 50)) +
+            "," +
+            (100 + Math.round(scores[s] * 50)) +
+            ");"
+        });
+      }
+    }
 
     var weights = {
       distance: 1,
@@ -247,52 +302,6 @@ Mashnet.prototype.scan = function(addition) {
       }
       matches.push(match);
     }
-
-    if (process.env.DEBUG) {
-      debug({
-        type: "fit",
-        bbox: turf.bbox(turf.featureCollection([sw, ne, line]))
-      });
-      debug({
-        type: "draw",
-        geometry: turf.lineString(turf.envelope(line).geometry.coordinates[0])
-          .geometry,
-        style: {
-          width: 2,
-          color: "#5AFF52",
-          opacity: 0.95
-        },
-        fade: 2000
-      });
-      debug({
-        type: "draw",
-        geometry: line.geometry,
-        style: {
-          width: 5,
-          color: "#0ff",
-          opacity: 0.7
-        },
-        fade: 2000
-      });
-      debug({
-        type: "log",
-        message: "---"
-      });
-      for (let s of Object.keys(scores)) {
-        debug({
-          type: "log",
-          message: s + ": " + scores[s].toFixed(6),
-          color:
-            "rgb(" +
-            (100 + Math.round(Math.abs(scores[s] - 1) * 105)) +
-            "," +
-            (100 + Math.round(scores[s] * 50)) +
-            "," +
-            (100 + Math.round(scores[s] * 50)) +
-            ");"
-        });
-      }
-    }
   }
 
   var softmaxScores = softmax(
@@ -309,6 +318,22 @@ Mashnet.prototype.scan = function(addition) {
   matches = matches.sort((a, b) => {
     return b.softmax - a.softmax;
   });
+
+  if (process.env.DEBUG) {
+    debug({
+      type: "clear"
+    });
+    debug({
+      type: "draw",
+      geometry: matches[0].line.geometry,
+      style: {
+        color: DEBUG_COLOR_3,
+        width: 7,
+        opacity: 0.9
+      },
+      fade: 6000
+    });
+  }
 
   return matches;
 };
@@ -393,6 +418,50 @@ function similarity(a, b) {
   if (union.size > 0) {
     sim = overlap.size / union.size;
   }
+
+  if (process.env.DEBUG) {
+    var abCells = [];
+    var cCells = [];
+
+    for (let scan of a) {
+      abCells.push(
+        turf.bboxPolygon(tilebelt.tileToBBOX(tilebelt.quadkeyToTile(scan)))
+          .geometry.coordinates[0]
+      );
+    }
+    for (let scan of b) {
+      abCells.push(
+        turf.bboxPolygon(tilebelt.tileToBBOX(tilebelt.quadkeyToTile(scan)))
+          .geometry.coordinates[0]
+      );
+    }
+    for (let scan of overlap) {
+      cCells.push(
+        turf.bboxPolygon(tilebelt.tileToBBOX(tilebelt.quadkeyToTile(scan)))
+          .geometry.coordinates[0]
+      );
+    }
+
+    debug({
+      type: "draw",
+      geometry: turf.multiLineString(abCells).geometry,
+      style: {
+        color: DEBUG_COLOR_3,
+        opacity: 0.8
+      },
+      fade: 1000
+    });
+    debug({
+      type: "draw",
+      geometry: turf.multiLineString(cCells).geometry,
+      style: {
+        color: DEBUG_COLOR_4,
+        opacity: 0.8
+      },
+      fade: 2500
+    });
+  }
+
   return sim;
 }
 
@@ -405,61 +474,6 @@ function heuristics(line) {
     line.geometry.coordinates[line.geometry.coordinates.length - 1]
   );
 
-  if (process.env.DEBUG) {
-    debug({
-      type: "fit",
-      bbox: turf.bbox(turf.buffer(line, 0.1, { units: "kilometers" }))
-    });
-    debug({
-      type: "draw",
-      geometry: start.geometry,
-      style: {
-        color: "#52FFFC",
-        width: 17,
-        opacity: 0.3
-      },
-      fade: 3000
-    });
-    debug({
-      type: "draw",
-      geometry: end.geometry,
-      style: {
-        color: "#52FFFC",
-        width: 17,
-        opacity: 0.3
-      },
-      fade: 3000
-    });
-    debug({
-      type: "draw",
-      geometry: turf.lineString([
-        start.geometry.coordinates,
-        end.geometry.coordinates
-      ]).geometry,
-      style: {
-        color: "#52FFFC",
-        width: 2,
-        opacity: 0.7
-      },
-      fade: 3000
-    });
-    for (let i = 0; i < line.geometry.coordinates.length - 1; i++) {
-      debug({
-        type: "draw",
-        geometry: turf.lineString([
-          line.geometry.coordinates[i],
-          line.geometry.coordinates[i + 1]
-        ]).geometry,
-        style: {
-          color: "#FFBD52",
-          width: 12,
-          opacity: 0.6
-        },
-        fade: 1000
-      });
-    }
-  }
-
   var distance = turf.lineDistance(line, UNITS);
   var straight = turf.distance(start, end, UNITS);
   var curve = straight / distance;
@@ -469,23 +483,6 @@ function heuristics(line) {
     scan.add(index);
   }
 
-  if (process.env.DEBUG) {
-    debug({
-      type: "draw",
-      geometry: turf.multiLineString(
-        indexes.map(index => {
-          return turf.bboxPolygon(
-            tilebelt.tileToBBOX(tilebelt.quadkeyToTile(index))
-          ).geometry.coordinates[0];
-        })
-      ).geometry,
-      style: {
-        color: "#CB52FF",
-        opacity: 0.8
-      },
-      fade: 1500
-    });
-  }
   var terminalIndexes = cover.indexes(
     turf.buffer(
       turf.multiPoint([
@@ -501,27 +498,11 @@ function heuristics(line) {
   for (let index of terminalIndexes) {
     terminal.add(index);
   }
-  if (process.env.DEBUG) {
-    debug({
-      type: "draw",
-      geometry: turf.multiLineString(
-        terminalIndexes.map(index => {
-          return turf.bboxPolygon(
-            tilebelt.tileToBBOX(tilebelt.quadkeyToTile(index))
-          ).geometry.coordinates[0];
-        })
-      ).geometry,
-      style: {
-        color: "#CB52FF",
-        opacity: 0.8
-      },
-      fade: 1500
-    });
-  }
 
   const bearing = turf.bearing(start, end);
 
   return {
+    line: line,
     distance: distance,
     straight: straight,
     curve: curve,

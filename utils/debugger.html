@@ -29,6 +29,7 @@
 <script>
   const DELTA = 75;
   const STEP = 200;
+	const BOUNDS_BORDER = 0.5
   var display = [];
 	mapboxgl.accessToken = '{{token}}';
   var map = new mapboxgl.Map({
@@ -136,7 +137,12 @@
         const action = actions.shift()
 
         if (action.type === 'fit') {
-          map.fitBounds([action.bbox.slice(0,2), action.bbox.slice(2,4)])
+					const borderX = (action.bbox[2] - action.bbox[0]) * BOUNDS_BORDER
+					const borderY = (action.bbox[3] - action.bbox[1]) * BOUNDS_BORDER
+
+          map.fitBounds([[action.bbox[0]-borderX, action.bbox[1]-borderY],
+						[action.bbox[2]+borderX, action.bbox[3]+borderY]
+					])
         } else if (action.type === 'draw') {
           data[action.geometry.type].features.push({
             'type': 'Feature',
