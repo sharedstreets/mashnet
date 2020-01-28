@@ -200,6 +200,10 @@ Mashnet.prototype.scan = function(addition) {
     }
     if (boxes.length) {
       debug({
+        type: "fit",
+        bbox: turf.bbox(turf.multiLineString(boxes))
+      });
+      debug({
         type: "draw",
         geometry: turf.multiLineString(boxes).geometry,
         style: {
