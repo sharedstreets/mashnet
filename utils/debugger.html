@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>mashnet</title>
+<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+<script src="https://api.mapbox.com/mapbox-gl-js/v1.6.1/mapbox-gl.js"></script>
+<link href="https://api.mapbox.com/mapbox-gl-js/v1.6.1/mapbox-gl.css" rel="stylesheet" />
+<style>
+	body { margin: 0; padding: 0; }
+	#map {
+    position: absolute; top: 0; bottom: 0; width: 100%; z-index: -1;
+  }
+
+  #log {
+    position: relative;
+    z-index: 99;
+    padding: 50px;
+    background-color: transparent;
+    pointer-events: none;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 25px;
+  }
+</style>
+</head>
+<body>
+<div id="log"></div>
+<div id="map"></div>
+<script>
+  const DELTA = 75;
+  const STEP = 200;
+  var display = [];
+	mapboxgl.accessToken = '{{token}}';
+  var map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/dark-v10',
+      center: [-157.85924434661865,
+          21.30142986366899],
+      zoom: 12
+  });
+
+  var data = reset()
+
+  var actions = {{actions}}
+  const copy = JSON.parse(JSON.stringify(actions))
+
+  var current = STEP
+  map.on('load', () => {
+    map.addLayer({
+      'id': 'Polygon',
+      'type': 'fill',
+      'source': {
+        'type': 'geojson',
+        'data': data['Polygon']
+      },
+      'paint': {
+        'fill-color': ['get', 'color'],
+        'fill-opacity': ['get', 'opacity']
+      }
+    })
+    map.addLayer({
+      'id': 'MultiPolygon',
+      'type': 'fill',
+      'source': {
+        'type': 'geojson',
+        'data': data['MultiPolygon']
+      },
+      'paint': {
+        'fill-color': ['get', 'color'],
+        'fill-opacity': ['get', 'opacity']
+      }
+    })
+    map.addLayer({
+      'id': 'LineString',
+      'type': 'line',
+      'source': {
+        'type': 'geojson',
+        'data': data['LineString']
+      },
+      'paint': {
+        'line-width': ['get', 'width'],
+        'line-color': ['get', 'color'],
+        'line-opacity': ['get', 'opacity']
+      }
+    })
+    map.addLayer({
+      'id': 'MultiLineString',
+      'type': 'line',
+      'source': {
+        'type': 'geojson',
+        'data': data['MultiLineString']
+      },
+      'paint': {
+        'line-width': ['get', 'width'],
+        'line-color': ['get', 'color'],
+        'line-opacity': ['get', 'opacity']
+      }
+    })
+    map.addLayer({
+      'id': 'Point',
+      'type': 'circle',
+      'source': {
+        'type': 'geojson',
+        'data': data['Point']
+      },
+      'paint': {
+        'circle-radius': ['get', 'width'],
+        'circle-color': ['get', 'color'],
+        'circle-opacity': ['get', 'opacity']
+      }
+    })
+    map.addLayer({
+      'id': 'MultiPoint',
+      'type': 'circle',
+      'source': {
+        'type': 'geojson',
+        'data': data['MultiPoint']
+      },
+      'paint': {
+        'circle-radius': ['get', 'width'],
+        'circle-color': ['get', 'color'],
+        'circle-opacity': ['get', 'opacity']
+      }
+    })
+
+    setInterval(() => {
+      if (actions.length === 0) {
+        display = []
+        data = reset()
+        actions = JSON.parse(JSON.stringify(copy))
+      }
+
+      current = current - DELTA;
+      if (current <= 0) {
+        current = STEP
+        const action = actions.shift()
+
+        if (action.type === 'fit') {
+          map.fitBounds([action.bbox.slice(0,2), action.bbox.slice(2,4)])
+        } else if (action.type === 'draw') {
+          data[action.geometry.type].features.push({
+            'type': 'Feature',
+            'geometry': action.geometry,
+            'properties': action.style,
+            'opacity': action.style.opacity,
+            'fade': action.fade || -1,
+            'age': 0
+          })
+        } else if (action.type === 'log') {
+          if (display.length > 10) {
+            display = display.slice(1, display.length)
+          }
+          if(!action.color) action.color = '#fff'
+          display.push(action)
+
+          document.getElementById('log').innerHTML =
+            display.map(action => {
+              return '<div style="color:'+action.color+';"><span style="padding:2.8px;background-color:rgba(10,10,10,0.4);">' + action.message + '</span></div>'
+            }).join('');
+        } else if (action.type === 'clear') {
+          display = []
+          data = reset()
+        }
+      }
+
+      // render
+      for (let type of Object.keys(data)) {
+        var filtered = {
+          'type': 'FeatureCollection',
+          'features': []
+        }
+        for (let feature of data[type].features) {
+          feature.age += DELTA
+          if (feature.fade === -1) {
+            filtered.features.push(feature)
+          } else {
+            if (feature.age >= feature.fade) {
+              // omit faded features
+            } else {
+              feature.properties.opacity =
+                feature.opacity - (feature.opacity * (feature.age / feature.fade))
+              filtered.features.push(feature)
+            }
+          }
+        }
+        data[type] = filtered;
+        map.getSource(type).setData(data[type]);
+      }
+    }, DELTA)
+  })
+
+  function reset () {
+    return {
+      'Point': {
+        'type': 'FeatureCollection',
+        'features': []
+      },
+      'MultiPoint': {
+        'type': 'FeatureCollection',
+        'features': []
+      },
+      'LineString': {
+        'type': 'FeatureCollection',
+        'features': []
+      },
+      'MultiLineString': {
+        'type': 'FeatureCollection',
+        'features': []
+      },
+      'Polygon': {
+        'type': 'FeatureCollection',
+        'features': []
+      },
+      'MultiPolygon': {
+        'type': 'FeatureCollection',
+        'features': []
+      }
+    }
+  }
+</script>
+
+</body>
+</html>

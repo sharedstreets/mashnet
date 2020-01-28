@@ -80,7 +80,6 @@ if (isMatch > 0.95) {
 }
 ```
 
-
 ### add
 
 Add accepts a new street represented as a GeoJSON LineString Feature with properties representing a metadata blob. The add function should be used when a proposed street has a low match score, signifying an edge that is not represented in the existing graph. The graph will be incrementally normalized to maintain topological integrity, and may result in one or more edges being added to the graph.
