@@ -1,9 +1,9 @@
-'use strict';
+"use strict";
 
-const fs = require('fs');
-const turf = require('@turf/turf');
+const fs = require("fs");
+const turf = require("@turf/turf");
 
-const Mashnet = require('../src/index.js');
+const Mashnet = require("../src/index.js");
 
 const network = JSON.parse(fs.readFileSync(process.argv[2]));
 

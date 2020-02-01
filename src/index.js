@@ -1,23 +1,24 @@
-'use strict';
+"use strict";
 
-const RTree = require('rbush');
-const turf = require('@turf/turf');
-const cover = require('@mapbox/tile-cover');
-const tilebelt = require('@mapbox/tilebelt');
-const softmax = require('softmax-fn');
-const brain = require('brain.js');
-const debug = require('./debug');
+const RTree = require("rbush");
+const turf = require("@turf/turf");
+const cover = require("@mapbox/tile-cover");
+const tilebelt = require("@mapbox/tilebelt");
+const softmax = require("softmax-fn");
+const brain = require("brain.js");
+const debug = require("./debug");
 
 // set constants
-const UNITS = { units: 'kilometers' };
+const UNITS = { units: "kilometers" };
 const DEG2RAD = Math.PI / 180.0;
 const RAD2DEG = 180.0 / Math.PI;
 const MAX_NODE_SHIFT = 0.01;
 const MAX_VERTEX_SHIFT = 0.03;
-const DEBUG_COLOR_1 = '#ff66ff'; // pink
-const DEBUG_COLOR_2 = '#00ff00'; // green
-const DEBUG_COLOR_3 = '#66ffff'; // cyan
-const DEBUG_COLOR_4 = '#ff9900'; // orange
+const DEBUG_COLOR_1 = "#ff66ff"; // pink
+const DEBUG_COLOR_2 = "#00ff00"; // green
+const DEBUG_COLOR_3 = "#66ffff"; // cyan
+const DEBUG_COLOR_4 = "#ff9900"; // orange
+const MATCH_DEPTH = 5;
 
 // constructor
 const Mashnet = function(ways) {
@@ -33,10 +34,10 @@ const Mashnet = function(ways) {
   // load pretrained match model, if present
   let matchModel;
   try {
-    matchModel = require('../model/match.json');
+    matchModel = require("../model/match.json");
     this.nn.fromJSON(matchModel);
   } catch (e) {
-    throw new Error('unable to load model');
+    throw new Error("unable to load model");
   }
 
   for (const way of ways) {
@@ -73,7 +74,7 @@ const Mashnet = function(ways) {
       // setup metadata
       const metadata = {};
       for (const property of Object.keys(way.properties)) {
-        if (['id', 'refs'].indexOf(property) === -1) {
+        if (["id", "refs"].indexOf(property) === -1) {
           metadata[property] = way.properties[property];
         }
       }
@@ -127,15 +128,15 @@ const Mashnet = function(ways) {
 Mashnet.prototype.scan = function(addition) {
   if (process.env.DEBUG) {
     debug({
-      type: 'log',
-      message: 'SCAN'
+      type: "log",
+      message: "SCAN"
     });
     debug({
-      type: 'fit',
+      type: "fit",
       bbox: turf.bbox(addition)
     });
     debug({
-      type: 'draw',
+      type: "draw",
       geometry: addition.geometry,
       style: {
         width: 4,
@@ -149,7 +150,7 @@ Mashnet.prototype.scan = function(addition) {
   // find matching edge candidates
 
   // get candidates
-  const buffer = 0.03;
+  const buffer = 0.1;
   const bbox = turf.bbox(addition);
   const sw = turf.destination(turf.point(bbox.slice(0, 2)), buffer, 225, UNITS);
   const ne = turf.destination(turf.point(bbox.slice(2, 4)), buffer, 45, UNITS);
@@ -163,11 +164,11 @@ Mashnet.prototype.scan = function(addition) {
 
   if (process.env.DEBUG) {
     debug({
-      type: 'fit',
+      type: "fit",
       bbox: sw.geometry.coordinates.concat(ne.geometry.coordinates)
     });
     debug({
-      type: 'draw',
+      type: "draw",
       geometry: turf.lineString(turf.bboxPolygon(bbox).geometry.coordinates[0])
         .geometry,
       style: {
@@ -178,7 +179,7 @@ Mashnet.prototype.scan = function(addition) {
       fade: 3000
     });
     debug({
-      type: 'draw',
+      type: "draw",
       geometry: turf.lineString(
         turf.envelope(turf.featureCollection([sw, ne])).geometry.coordinates[0]
       ).geometry,
@@ -204,15 +205,15 @@ Mashnet.prototype.scan = function(addition) {
     }
     if (boxes.length) {
       debug({
-        type: 'fit',
+        type: "fit",
         bbox: turf.bbox(turf.multiLineString(boxes))
       });
       debug({
-        type: 'draw',
+        type: "draw",
         geometry: turf.multiLineString(boxes).geometry,
         style: {
           width: 0.3,
-          color: '#5AFF52',
+          color: "#5AFF52",
           opacity: 0.9
         },
         fade: 5000
@@ -234,11 +235,11 @@ Mashnet.prototype.scan = function(addition) {
 
     if (process.env.DEBUG) {
       debug({
-        type: 'fit',
+        type: "fit",
         bbox: turf.bbox(turf.featureCollection([sw, ne, line]))
       });
       debug({
-        type: 'draw',
+        type: "draw",
         geometry: turf.lineString(turf.envelope(line).geometry.coordinates[0])
           .geometry,
         style: {
@@ -249,7 +250,7 @@ Mashnet.prototype.scan = function(addition) {
         fade: 2000
       });
       debug({
-        type: 'draw',
+        type: "draw",
         geometry: line.geometry,
         style: {
           width: 4,
@@ -265,21 +266,21 @@ Mashnet.prototype.scan = function(addition) {
 
     if (process.env.DEBUG) {
       debug({
-        type: 'log',
-        message: '---'
+        type: "log",
+        message: "---"
       });
       for (const s of Object.keys(scores)) {
         debug({
-          type: 'log',
-          message: s + ': ' + scores[s].toFixed(6),
+          type: "log",
+          message: s + ": " + scores[s].toFixed(6),
           color:
-            'rgb(' +
+            "rgb(" +
             (100 + Math.round(Math.abs(scores[s] - 1) * 105)) +
-            ',' +
+            "," +
             (100 + Math.round(scores[s] * 50)) +
-            ',' +
+            "," +
             (100 + Math.round(scores[s] * 50)) +
-            ');'
+            ");"
         });
       }
     }
@@ -313,7 +314,7 @@ Mashnet.prototype.scan = function(addition) {
   }
 
   const softmaxScores = softmax(
-    matches.map((match) => {
+    matches.map(match => {
       return match.score;
     })
   );
@@ -329,10 +330,10 @@ Mashnet.prototype.scan = function(addition) {
 
   if (process.env.DEBUG) {
     debug({
-      type: 'clear'
+      type: "clear"
     });
     debug({
-      type: 'draw',
+      type: "draw",
       geometry: matches[0].line.geometry,
       style: {
         color: DEBUG_COLOR_3,
@@ -347,19 +348,32 @@ Mashnet.prototype.scan = function(addition) {
 };
 
 Mashnet.prototype.match = function(scores) {
-  if (!scores.length) {
+  if (!Array.isArray(scores)) {
+    throw new Error("Mashnet.prototype.match must receive an array of scores");
+  } else if (scores.length === 0) {
     return 0;
   } else {
-    const prediction = this.nn.run({
-      distance: scores[0].distance,
-      scale: scores[0].scale,
-      straight: scores[0].straight,
-      curve: scores[0].curve,
-      scan: scores[0].scan,
-      terminal: scores[0].terminal,
-      bearing: scores[0].bearing,
-      softmax: scores[0].softmax
-    });
+    const input = {};
+    for (let k = 0; k < MATCH_DEPTH; k++) {
+      if (scores[k]) {
+        input["distance_" + k] = scores[k].distance;
+        input["scale_" + k] = scores[k].scale;
+        input["straight_" + k] = scores[k].straight;
+        input["curve_" + k] = scores[k].curve;
+        input["scan_" + k] = scores[k].scan;
+        input["terminal_" + k] = scores[k].terminal;
+        input["bearing_" + k] = scores[k].bearing;
+      } else {
+        input["distance_" + k] = 0.0;
+        input["scale_" + k] = 0.0;
+        input["straight_" + k] = 0.0;
+        input["curve_" + k] = 0.0;
+        input["scan_" + k] = 0.0;
+        input["terminal_" + k] = 0.0;
+        input["bearing_" + k] = 0.0;
+      }
+    }
+    const prediction = this.nn.run(input);
     return prediction.match;
   }
 };
@@ -451,7 +465,7 @@ function similarity(a, b) {
     }
 
     debug({
-      type: 'draw',
+      type: "draw",
       geometry: turf.multiLineString(abCells).geometry,
       style: {
         color: DEBUG_COLOR_3,
@@ -460,7 +474,7 @@ function similarity(a, b) {
       fade: 1000
     });
     debug({
-      type: 'draw',
+      type: "draw",
       geometry: turf.multiLineString(cCells).geometry,
       style: {
         color: DEBUG_COLOR_4,
@@ -474,8 +488,8 @@ function similarity(a, b) {
 }
 
 function heuristics(line) {
-  const buffer = 0.01;
-  const z = 24;
+  const buffer = 0.05;
+  const z = 23;
   const zs = { min_zoom: z, max_zoom: z };
   const start = turf.point(line.geometry.coordinates[0]);
   const end = turf.point(
@@ -532,15 +546,15 @@ Mashnet.prototype.merge = function(existing, addition) {
 Mashnet.prototype.add = function(addition) {
   if (process.env.DEBUG) {
     debug({
-      type: 'log',
-      message: 'ADD'
+      type: "log",
+      message: "ADD"
     });
     debug({
-      type: 'fit',
+      type: "fit",
       bbox: turf.bbox(addition)
     });
     debug({
-      type: 'draw',
+      type: "draw",
       geometry: addition.geometry,
       style: {
         width: 4,
@@ -592,15 +606,15 @@ Mashnet.prototype.add = function(addition) {
     }
 
     debug({
-      type: 'fit',
+      type: "fit",
       bbox: turf.bbox(turf.multiLineString(lines))
     });
     debug({
-      type: 'log',
-      message: candidates.length + ' edge candidates'
+      type: "log",
+      message: candidates.length + " edge candidates"
     });
     debug({
-      type: 'draw',
+      type: "draw",
       geometry: turf.multiLineString(lines).geometry,
       style: {
         width: 2,
@@ -610,15 +624,15 @@ Mashnet.prototype.add = function(addition) {
       fade: 100000
     });
     debug({
-      type: 'log',
-      message: vertices.size + ' vertex candidates'
+      type: "log",
+      message: vertices.size + " vertex candidates"
     });
     const vertexPts = [];
     for (const vertex of vertices) {
       vertexPts.push(vertex[1].geometry.coordinates);
     }
     debug({
-      type: 'draw',
+      type: "draw",
       geometry: turf.multiPoint(vertexPts).geometry,
       style: {
         width: 4,
@@ -629,15 +643,15 @@ Mashnet.prototype.add = function(addition) {
     });
 
     debug({
-      type: 'log',
-      message: nodes.size + ' node candidates'
+      type: "log",
+      message: nodes.size + " node candidates"
     });
     const nodePts = [];
     for (const node of nodes) {
       nodePts.push(node[1].geometry.coordinates);
     }
     debug({
-      type: 'draw',
+      type: "draw",
       geometry: turf.multiPoint(nodePts).geometry,
       style: {
         width: 8,
@@ -648,7 +662,7 @@ Mashnet.prototype.add = function(addition) {
     });
     debug({
       // todo: delete
-      type: 'fit',
+      type: "fit",
       bbox: turf.bbox(turf.multiLineString(lines))
     });
   }
@@ -694,7 +708,7 @@ Mashnet.prototype.add = function(addition) {
           nodes.get(item.id).geometry.coordinates
         ]);
         debug({
-          type: 'draw',
+          type: "draw",
           geometry: line.geometry,
           style: {
             width: 1,
@@ -711,7 +725,7 @@ Mashnet.prototype.add = function(addition) {
           vertices.get(item.id).geometry.coordinates
         ]);
         debug({
-          type: 'draw',
+          type: "draw",
           geometry: line.geometry,
           style: {
             width: 1,
@@ -726,7 +740,7 @@ Mashnet.prototype.add = function(addition) {
     if (closestNode.distance <= MAX_NODE_SHIFT) {
       if (process.env.DEBUG) {
         debug({
-          type: 'draw',
+          type: "draw",
           geometry: nodes.get(closestNode.id).geometry,
           style: {
             width: 20,
@@ -737,14 +751,14 @@ Mashnet.prototype.add = function(addition) {
         });
       }
       steps.push({
-        type: 'node',
+        type: "node",
         id: closestNode.id
       });
       continue;
     } else if (closestVertex.distance <= MAX_VERTEX_SHIFT) {
       if (process.env.DEBUG) {
         debug({
-          type: 'draw',
+          type: "draw",
           geometry: vertices.get(closestVertex.id).geometry,
           style: {
             width: 20,
@@ -755,14 +769,14 @@ Mashnet.prototype.add = function(addition) {
         });
       }
       steps.push({
-        type: 'vertex',
+        type: "vertex",
         id: closestVertex.id
       });
       continue;
     } else {
       steps.push({
-        type: 'insert',
-        id: 'n?' + this.id++,
+        type: "insert",
+        id: "n?" + this.id++,
         coordinate: coordinate
       });
       continue;
@@ -776,9 +790,9 @@ Mashnet.prototype.add = function(addition) {
     if (next) {
       insert.push(next);
 
-      if (next.type === 'node' || next.type === 'vertex') {
+      if (next.type === "node" || next.type === "vertex") {
         // insert edge
-        const id = 'e?' + this.id++;
+        const id = "e?" + this.id++;
         const refs = [];
         for (const item of insert) {
           refs.push(item.id);

@@ -1,13 +1,13 @@
-'use strict';
+"use strict";
 
 // generate a fixture from a osm.pbf file
 // node generate-fixture honolulu.osm.pbf honolulu.json
 
-const fs = require('fs');
-const through = require('through2');
-const parser = require('osm-pbf-parser');
-const turf = require('@turf/turf');
-const normalize = require('../src/normalizer.js');
+const fs = require("fs");
+const through = require("through2");
+const parser = require("osm-pbf-parser");
+const turf = require("@turf/turf");
+const normalize = require("../src/normalizer.js");
 
 async function run() {
   const pbf = process.argv[2];
@@ -65,7 +65,7 @@ async function loadWays(pbf, data) {
       .pipe(
         through.obj((items, enc, next) => {
           for (const item of items) {
-            if (item.type === 'way') {
+            if (item.type === "way") {
               if (item.tags.highway) {
                 data.ways.push(item);
                 for (const ref of item.refs) {
@@ -77,7 +77,7 @@ async function loadWays(pbf, data) {
           next();
         })
       )
-      .on('finish', () => {
+      .on("finish", () => {
         resolve(data);
       });
   });
@@ -93,7 +93,7 @@ async function loadNodes(pbf, data) {
       .pipe(
         through.obj((items, enc, next) => {
           for (const item of items) {
-            if (item.type === 'node') {
+            if (item.type === "node") {
               if (data.nodes.has(item.id)) {
                 data.nodes.set(item.id, [item.lon, item.lat]);
               }
@@ -102,7 +102,7 @@ async function loadNodes(pbf, data) {
           next();
         })
       )
-      .on('finish', () => {
+      .on("finish", () => {
         resolve(data);
       });
   });
