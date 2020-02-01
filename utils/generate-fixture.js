@@ -1,4 +1,10 @@
+<<<<<<< HEAD
 "use strict";
+=======
+#! /usr/bin/env node
+
+'use strict';
+>>>>>>> 9db7af70ff7f74be8786906d3a072c158a71e420
 
 // generate a fixture from a osm.pbf file
 // node generate-fixture honolulu.osm.pbf honolulu.json
@@ -9,16 +15,36 @@ const parser = require("osm-pbf-parser");
 const turf = require("@turf/turf");
 const normalize = require("../src/normalizer.js");
 
-async function run() {
-  const pbf = process.argv[2];
-  const fixture = process.argv[3];
+if (require.main === module) {
+    if (!process.argv[2] || !process.argv[3]) {
+        console.error();
+        console.error('Generate a graph friendly road network given an OSM PBF');
+        console.error();
+        console.error('Usage ./generate-fixture.js <osm.pbf> <output.json>');
+        console.error();
+        process.exit(1);
+    }
 
-  const ways = await loadPBF(pbf);
-  const graph = normalize(ways);
-  fs.writeFileSync(fixture, JSON.stringify(graph));
+    const pbf = process.argv[2];
+    const fixture = process.argv[3]
+
+    run(pbf, fixture);
+} else {
+    module.exports = run;
 }
 
-run();
+/**
+ * Given the location of an OSM pbf file,
+ * output a normalized graph
+ *
+ * @param {String} pbf path to osm.pbf
+ * @param {String} output path to write normalized JSON to
+ */
+async function run(pbf, output) {
+  const ways = await loadPBF(pbf);
+  const graph = normalize(ways);
+  fs.writeFileSync(output, JSON.stringify(graph));
+}
 
 async function loadPBF(pbf) {
   let data = {
