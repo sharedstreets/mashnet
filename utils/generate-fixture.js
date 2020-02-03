@@ -24,10 +24,12 @@ if (require.main === module) {
   const pbf = process.argv[2];
   const fixture = process.argv[3];
 
-    run(pbf, fixture).then((graph) => {
-        fs.writeFileSync(output, JSON.stringify(graph));
-    }).catch((err) => {
-        throw err;
+  run(pbf, fixture)
+    .then(graph => {
+      fs.writeFileSync(fixture, JSON.stringify(graph));
+    })
+    .catch(err => {
+      throw err;
     });
 } else {
   module.exports = run;
