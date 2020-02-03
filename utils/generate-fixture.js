@@ -1,10 +1,6 @@
-<<<<<<< HEAD
-"use strict";
-=======
 #! /usr/bin/env node
 
-'use strict';
->>>>>>> 9db7af70ff7f74be8786906d3a072c158a71e420
+"use strict";
 
 // generate a fixture from a osm.pbf file
 // node generate-fixture honolulu.osm.pbf honolulu.json
@@ -16,21 +12,21 @@ const turf = require("@turf/turf");
 const normalize = require("../src/normalizer.js");
 
 if (require.main === module) {
-    if (!process.argv[2] || !process.argv[3]) {
-        console.error();
-        console.error('Generate a graph friendly road network given an OSM PBF');
-        console.error();
-        console.error('Usage ./generate-fixture.js <osm.pbf> <output.json>');
-        console.error();
-        process.exit(1);
-    }
+  if (!process.argv[2] || !process.argv[3]) {
+    console.error();
+    console.error("Generate a graph friendly road network given an OSM PBF");
+    console.error();
+    console.error("Usage ./generate-fixture.js <osm.pbf> <output.json>");
+    console.error();
+    process.exit(1);
+  }
 
-    const pbf = process.argv[2];
-    const fixture = process.argv[3]
+  const pbf = process.argv[2];
+  const fixture = process.argv[3];
 
-    run(pbf, fixture);
+  run(pbf, fixture);
 } else {
-    module.exports = run;
+  module.exports = run;
 }
 
 /**
