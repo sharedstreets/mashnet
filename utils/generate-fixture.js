@@ -1,28 +1,28 @@
 #! /usr/bin/env node
 
-'use strict';
+"use strict";
 
 // generate a fixture from a osm.pbf file
 // node generate-fixture honolulu.osm.pbf honolulu.json
 
-const fs = require('fs');
-const through = require('through2');
-const parser = require('osm-pbf-parser');
-const turf = require('@turf/turf');
-const normalize = require('../src/normalizer.js');
+const fs = require("fs");
+const through = require("through2");
+const parser = require("osm-pbf-parser");
+const turf = require("@turf/turf");
+const normalize = require("../src/normalizer.js");
 
 if (require.main === module) {
-    if (!process.argv[2] || !process.argv[3]) {
-        console.error();
-        console.error('Generate a graph friendly road network given an OSM PBF');
-        console.error();
-        console.error('Usage ./generate-fixture.js <osm.pbf> <output.json>');
-        console.error();
-        process.exit(1);
-    }
+  if (!process.argv[2] || !process.argv[3]) {
+    console.error();
+    console.error("Generate a graph friendly road network given an OSM PBF");
+    console.error();
+    console.error("Usage ./generate-fixture.js <osm.pbf> <output.json>");
+    console.error();
+    process.exit(1);
+  }
 
-    const pbf = process.argv[2];
-    const fixture = process.argv[3]
+  const pbf = process.argv[2];
+  const fixture = process.argv[3];
 
     run(pbf, fixture).then((graph) => {
         fs.writeFileSync(output, JSON.stringify(graph));
@@ -30,7 +30,7 @@ if (require.main === module) {
         throw err;
     });
 } else {
-    module.exports = run;
+  module.exports = run;
 }
 
 /**
@@ -92,7 +92,7 @@ async function loadWays(pbf, data) {
       .pipe(
         through.obj((items, enc, next) => {
           for (const item of items) {
-            if (item.type === 'way') {
+            if (item.type === "way") {
               if (item.tags.highway) {
                 data.ways.push(item);
                 for (const ref of item.refs) {
@@ -104,7 +104,7 @@ async function loadWays(pbf, data) {
           next();
         })
       )
-      .on('finish', () => {
+      .on("finish", () => {
         resolve(data);
       });
   });
@@ -120,7 +120,7 @@ async function loadNodes(pbf, data) {
       .pipe(
         through.obj((items, enc, next) => {
           for (const item of items) {
-            if (item.type === 'node') {
+            if (item.type === "node") {
               if (data.nodes.has(item.id)) {
                 data.nodes.set(item.id, [item.lon, item.lat]);
               }
@@ -129,7 +129,7 @@ async function loadNodes(pbf, data) {
           next();
         })
       )
-      .on('finish', () => {
+      .on("finish", () => {
         resolve(data);
       });
   });

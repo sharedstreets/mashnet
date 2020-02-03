@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Draw GeoJSON points</title>
+<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+<script src="https://api.mapbox.com/mapbox-gl-js/v1.7.0/mapbox-gl.js"></script>
+<link href="https://api.mapbox.com/mapbox-gl-js/v1.7.0/mapbox-gl.css" rel="stylesheet" />
+<style>
+	body { margin: 0; padding: 0; }
+	#map { position: absolute; top: 0; bottom: 0; width: 100%; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+mapboxgl.accessToken = 'pk.eyJ1IjoibW9yZ2FuaGVybG9ja2VyIiwiYSI6Ii1zLU4xOWMifQ.FubD68OEerk74AYCLduMZQ';
+var map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mapbox/dark-v10',
+  center: [-157.85894393920898,
+          21.31176522472058],
+  zoom: 12
+});
+
+map.on('load', function() {
+  map.addSource('nodes', {
+    'type': 'geojson',
+    'data': {{nodes}}
+  });
+  map.addLayer({
+    'id': 'nodes',
+    'type': 'circle',
+    'source': 'nodes',
+    'paint': {
+      'circle-radius': 4,
+      'circle-color': '#f0f',
+      'circle-opacity': 0.8
+    }
+  });
+  map.addSource('vertices', {
+    'type': 'geojson',
+    'data': {{vertices}}
+  });
+  map.addLayer({
+    'id': 'vertices',
+    'type': 'circle',
+    'source': 'vertices',
+    'paint': {
+      'circle-radius': 2,
+      'circle-color': '#0ff',
+      'circle-opacity': 0.8
+    }
+  });
+  map.addSource('edges', {
+    'type': 'geojson',
+    'data': {{edges}}
+  });
+  map.addLayer({
+    'id': 'edges',
+    'type': 'line',
+    'source': 'edges',
+    'paint': {
+      'line-width': 0.8,
+      'line-color': '#0f0',
+      'line-opacity': 0.7
+    }
+  });
+});
+</script>
+
+</body>
+</html>

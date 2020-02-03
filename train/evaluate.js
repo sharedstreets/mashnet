@@ -7,107 +7,82 @@ const brain = require("brain.js");
 const Chance = require("chance");
 const Mashnet = require("../src/index.js");
 
-const SHIFT = 0.003;
-const JITTER = 0.0005;
+const SHIFT = 0.005;
+const JITTER = 0.0008;
 const UNITS = { units: "kilometers" };
+MATCH_DEPTH = 5;
 
-const honolulu = require(path.join(__dirname, "./fixtures/honolulu.json"));
+const honolulu = require(path.join(__dirname, "../samples/honolulu.json"));
 const chance = new Chance();
-const modelDir = path.join(__dirname, "../model/");
-const modelPath = path.join(modelDir, "match.json");
-mkdirp.sync(modelDir);
 
 var net = new Mashnet(honolulu);
 
-const model = require(modelPath);
-const nn = new brain.NeuralNetwork();
-nn.fromJSON(model);
-
 var i = 0;
+var total = 0;
+var misses = 0;
+var fakes = 0;
 for (let edge of net.edges) {
   i++;
-  console.error(i);
+  if (i > 0) {
+    total++;
+    console.log(
+      "misses: " +
+        (misses / total).toFixed(4) +
+        "% - fakes: " +
+        (fakes / total).toFixed(4) +
+        "% total: " +
+        total
+    );
 
-  var fake = perturb(net, edge[1]);
+    var fake = perturb(net, edge[1]);
 
-  if (chance.bool()) {
-    // drop
-    var copy = JSON.parse(JSON.stringify(edge));
-    net.edges.delete(edge[0]);
-    net.edgetree.remove(treecopy(net, edge), (a, b) => {
-      return a.id === b.id;
-    });
-
-    // match
-    const match = net.match(fake)[0];
-    if (match && match.score) {
-      const res = nn.run({
-        distance: match.distance,
-        scale: match.scale,
-        straight: match.straight,
-        curve: match.curve,
-        scan: match.scan,
-        terminal: match.terminal,
-        bearing: match.bearing,
-        softmax: match.softmax
+    if (chance.bool()) {
+      // drop
+      var copy = JSON.parse(JSON.stringify(edge));
+      net.edges.delete(edge[0]);
+      net.edgetree.remove(treecopy(net, edge), (a, b) => {
+        return a.id === b.id;
       });
 
-      if (res.match > 0.5) {
-        fake.properties.match = res.match;
-        console.log(JSON.stringify(fake));
-        /*match.line.properties.stroke = "#FFB16B";
-        console.log(JSON.stringify(turf.featureCollection([match.line, fake])));
+      // match
+      const scores = net.scan(fake);
+      const prediction = net.match(scores);
+
+      if (prediction > 0.9) {
+        fakes++;
+        fake.properties.match = prediction;
+        console.log("fake");
         console.log(
-          {
-            distance: match.distance,
-            scale: match.scale,
-            straight: match.straight,
-            curve: match.curve,
-            scan: match.scan,
-            terminal: match.terminal,
-            bearing: match.bearing,
-            softmax: match.softmax
-          },
-          res
-        );*/
+          JSON.stringify(
+            turf.featureCollection([
+              fake,
+              turf.lineString(scores[0].line.geometry.coordinates)
+            ])
+          )
+        );
       }
-    }
 
-    // reinsert
-    net.edges.set(copy[0], copy[1]);
-    net.edgetree.insert(treecopy(net, edge));
-  } else {
-    // match
-    const match = net.match(fake)[0];
-    const res = nn.run({
-      distance: match.distance,
-      scale: match.scale,
-      straight: match.straight,
-      curve: match.curve,
-      scan: match.scan,
-      terminal: match.terminal,
-      bearing: match.bearing,
-      softmax: match.softmax
-    });
+      // reinsert
+      net.edges.set(copy[0], copy[1]);
+      net.edgetree.insert(treecopy(net, edge));
+    } else {
+      // match
+      const scores = net.scan(fake);
+      const prediction = net.match(scores);
 
-    if (res.match < 0.5) {
-      fake.properties.match = res.match;
-      console.log(JSON.stringify(fake));
-      /*match.line.properties.stroke = "#FFB16B";
-      console.log(JSON.stringify(turf.featureCollection([match.line, fake])));
-      console.log(
-        {
-          distance: match.distance,
-          scale: match.scale,
-          straight: match.straight,
-          curve: match.curve,
-          scan: match.scan,
-          terminal: match.terminal,
-          bearing: match.bearing,
-          softmax: match.softmax
-        },
-        res
-      );*/
+      if (prediction < 0.1) {
+        misses++;
+        fake.properties.match = prediction;
+        console.log("miss");
+        console.log(
+          JSON.stringify(
+            turf.featureCollection([
+              fake,
+              turf.lineString(scores[0].line.geometry.coordinates)
+            ])
+          )
+        );
+      }
     }
   }
 }
