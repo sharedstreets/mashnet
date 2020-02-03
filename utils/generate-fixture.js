@@ -24,7 +24,11 @@ if (require.main === module) {
     const pbf = process.argv[2];
     const fixture = process.argv[3]
 
-    run(pbf, fixture);
+    run(pbf, fixture).then((graph) => {
+        fs.writeFileSync(output, JSON.stringify(graph));
+    }).catch((err) => {
+        throw err;
+    });
 } else {
     module.exports = run;
 }
@@ -34,12 +38,13 @@ if (require.main === module) {
  * output a normalized graph
  *
  * @param {String} pbf path to osm.pbf
- * @param {String} output path to write normalized JSON to
+ *
+ * @returns {Promise}
  */
-async function run(pbf, output) {
+async function run(pbf) {
   const ways = await loadPBF(pbf);
   const graph = normalize(ways);
-  fs.writeFileSync(output, JSON.stringify(graph));
+  return graph;
 }
 
 async function loadPBF(pbf) {
