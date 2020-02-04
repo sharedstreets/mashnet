@@ -12,8 +12,9 @@ const debug = require("./debug");
 const UNITS = { units: "kilometers" };
 const DEG2RAD = Math.PI / 180.0;
 const RAD2DEG = 180.0 / Math.PI;
-const MAX_NODE_SHIFT = 0.01;
-const MAX_VERTEX_SHIFT = 0.03;
+const MAX_NODE_SHIFT = 0.015;
+const MAX_VERTEX_SHIFT = 0.01;
+const MAX_PHANTOM_SHIFT = 0.005;
 const DEBUG_COLOR_1 = "#ff66ff"; // pink
 const DEBUG_COLOR_2 = "#00ff00"; // green
 const DEBUG_COLOR_3 = "#66ffff"; // cyan
@@ -542,6 +543,352 @@ Mashnet.prototype.merge = function(existing, addition) {
   }
   this.metadata.set(existing, metadata);
 };
+
+Mashnet.prototype.append = function(addition) {
+  const buffer = MAX_NODE_SHIFT * 1.5;
+  const bbox = turf.bbox(addition);
+  const sw = turf.destination(turf.point(bbox.slice(0, 2)), buffer, 225, UNITS);
+  const ne = turf.destination(turf.point(bbox.slice(2, 4)), buffer, 45, UNITS);
+
+  const candidates = this.edgetree.search({
+    minX: sw.geometry.coordinates[0],
+    minY: sw.geometry.coordinates[1],
+    maxX: ne.geometry.coordinates[0],
+    maxY: ne.geometry.coordinates[1]
+  });
+
+  // build local data
+  const edges = new Map();
+  const nodes = new Map();
+  const vertices = new Map();
+  const phantoms = new Map();
+  // build edges
+  for (const candidate of candidates) {
+    edges.set(candidate.id, this.edges.get(candidate.id));
+  }
+
+  for (const edge of edges) {
+    // build vertices
+    const coordinates = [];
+    for (const ref of edge[1]) {
+      const pair = this.vertices.get(ref);
+      vertices.set(ref, pair);
+      coordinates.push(pair);
+    }
+
+    // build nodes
+    nodes.set(edge[1][0], vertices.get(edge[1][0]));
+    nodes.set(
+      edge[1][edge[1].length - 1],
+      vertices.get(edge[1][edge[1].length - 1])
+    );
+
+    // build phantoms
+    const line = turf.lineString(coordinates);
+    const distance = turf.length(line);
+    const step = MAX_PHANTOM_SHIFT / distance;
+    let progress = 0.0;
+    while (progress + step < 1.0) {
+      progress += step;
+      const pair = turf.along(line, progress * distance).geometry.coordinates;
+      phantoms.set(phantoms.size, {
+        edge: edge[0],
+        pair: pair
+      });
+    }
+  }
+
+  // build local trees
+  const nodeTree = new RTree();
+  const vertexTree = new RTree();
+  const phantomTree = new RTree();
+
+  // build local node tree
+  for (const node of nodes) {
+    const pair = vertices.get(node[0]);
+    const item = {
+      minX: pair[0],
+      minY: pair[1],
+      maxX: pair[0],
+      maxY: pair[1],
+      id: node[0]
+    };
+    nodeTree.insert(item);
+  }
+
+  // build local vertex tree
+  for (const vertex of vertices) {
+    const item = {
+      minX: vertex[1][0],
+      minY: vertex[1][1],
+      maxX: vertex[1][0],
+      maxY: vertex[1][1],
+      id: vertex[0]
+    };
+    vertexTree.insert(item);
+  }
+
+  // build local phantom tree
+  for (const phantom of phantoms) {
+    const item = {
+      minX: phantom[1].pair[0],
+      minY: phantom[1].pair[1],
+      maxX: phantom[1].pair[0],
+      maxY: phantom[1].pair[1],
+      edge: phantom[1].edge,
+      pair: phantom[1].pair
+    };
+    phantomTree.insert(item);
+  }
+
+  // build potential change list
+  const pairs = addition.geometry.coordinates;
+  // insert proposed vertices
+  const changes = [
+    {
+      along: 0.0,
+      pair: pairs[0],
+      phantom: false
+    }
+  ];
+  const distance = turf.length(addition);
+  for (let i = 1; i < pairs.length; i++) {
+    const pair = pairs[i];
+    const along =
+      turf.length(
+        turf.lineSlice(turf.point(pairs[0]), turf.point(pair), addition)
+      ) / distance;
+
+    changes.push({
+      along: along,
+      pair: pair,
+      phantom: false
+    });
+  }
+  // insert phantom vertices
+  const step = MAX_PHANTOM_SHIFT / distance;
+  let progress = 0.0;
+  while (progress + step < 1.0) {
+    progress += step;
+    const pair = turf.along(addition, progress * distance, UNITS).geometry
+      .coordinates;
+    changes.push({
+      along: progress,
+      pair: pair,
+      phantom: true
+    });
+  }
+  // sort change list
+  changes.sort((a, b) => {
+    return a.along - b.along;
+  });
+
+  // create commits from changes
+  const commits = [];
+  for (const change of changes) {
+    let closestNode;
+    let closestVertex;
+    let closestPhantom;
+
+    // get closest node
+    const nodeCandidates = searchTree(change.pair, MAX_NODE_SHIFT, nodeTree);
+    for (const nodeCandidate of nodeCandidates) {
+      const pair = vertices.get(nodeCandidate.id);
+      const apart = turf.distance(
+        turf.point(pair),
+        turf.point(change.pair),
+        UNITS
+      );
+      if (!closestNode) {
+        closestNode = {
+          id: nodeCandidate.id,
+          pair: pair,
+          distance: apart
+        };
+      } else if (apart < closestNode.distance) {
+        closestNode = {
+          id: nodeCandidate.id,
+          pair: pair,
+          distance: apart
+        };
+      }
+    }
+
+    // get closest vertex
+    if (!closestNode) {
+      const vertexCandidates = searchTree(
+        change.pair,
+        MAX_VERTEX_SHIFT,
+        vertexTree
+      );
+      for (const vertexCandidate of vertexCandidates) {
+        const pair = vertices.get(vertexCandidate.id);
+        const apart = turf.distance(
+          turf.point(pair),
+          turf.point(change.pair),
+          UNITS
+        );
+        if (!closestVertex) {
+          closestVertex = {
+            id: vertexCandidate.id,
+            pair: pair,
+            distance: apart
+          };
+        } else if (apart < closestVertex.distance) {
+          closestVertex = {
+            id: vertexCandidate.id,
+            pair: pair,
+            distance: apart
+          };
+        }
+      }
+    }
+
+    // get closest phantom
+    if (!closestVertex) {
+      const phantomCandidates = searchTree(
+        change.pair,
+        MAX_PHANTOM_SHIFT,
+        phantomTree
+      );
+      for (const phantomCandidate of phantomCandidates) {
+        const pair = phantomCandidate.pair;
+        const apart = turf.distance(
+          turf.point(pair),
+          turf.point(change.pair),
+          UNITS
+        );
+        if (!closestPhantom) {
+          closestPhantom = {
+            edge: phantomCandidate.edge,
+            pair: pair,
+            distance: apart
+          };
+        } else if (apart < closestPhantom.distance) {
+          closestPhantom = {
+            edge: phantomCandidate.edge,
+            pair: pair,
+            distance: apart
+          };
+        }
+      }
+    }
+
+    if (closestNode && closestNode.distance <= MAX_NODE_SHIFT) {
+      if (
+        !commits.length ||
+        (commits[commits.length - 1].type !== "node" &&
+          commits[commits.length - 1].id !== closestNode.id)
+      ) {
+        commits.push({
+          type: "node",
+          id: closestNode.id
+        });
+      }
+    } else if (closestVertex && closestVertex.distance <= MAX_VERTEX_SHIFT) {
+      if (
+        !commits.length ||
+        (commits[commits.length - 1].type !== "vertex" &&
+          commits[commits.length - 1].id !== closestVertex.id)
+      ) {
+        commits.push({
+          type: "vertex",
+          id: closestVertex.id
+        });
+      }
+    } else if (closestPhantom && closestPhantom.distance <= MAX_PHANTOM_SHIFT) {
+      commits.push({
+        type: "phantom",
+        edge: closestPhantom.edge
+      });
+    } else if (!change.phantom) {
+      commits.push({
+        type: "new",
+        pair: change.pair
+      });
+    }
+  }
+
+  // split commits
+  let next = commits.shift();
+  let insert = [next];
+  const inserts = [];
+  while (commits.length) {
+    next = commits.shift();
+    if (next) {
+      insert.push(next);
+
+      // cut edge if node, vertex, or last new
+      if (
+        next.type === "node" ||
+        next.type === "vertex" ||
+        next.type === "phantom" ||
+        commits.length === 0
+      ) {
+        inserts.push(insert);
+        insert = [next];
+      }
+    }
+  }
+
+  for (const insert of inserts) {
+    const id = this.id++;
+    const refs = [];
+    for (const item of insert) {
+      if (item.type === "node") {
+        // add edge to node list
+        const node = this.nodes.get(item.id);
+        node.add(id);
+        this.nodes.set(item.id, node);
+        // add ref to edge
+        refs.push(item.id);
+      } else if (item.type === "vertex") {
+        // promote vertex to node
+        const parents = [];
+        for (const edge of this.edges) {
+          if (edge[1].indexOf(item.id) !== -1) {
+            parents.push(edge[0]);
+          }
+        }
+        console.log(parents);
+        // split parents
+        // insert new node
+        // add ref to edge
+        refs.push(item.id);
+      } else if (item.type === "phantom") {
+        // set phantom id
+        item.id = this.id++;
+        // insert new vertex
+        this.vertices.set(item.id, item.pair);
+        // split parents
+        // insert new node
+        // add ref to edge
+        refs.push(item.id);
+      } else if (item.type === "new") {
+        // set new id
+        item.id = this.id++;
+        // insert new vertex
+        this.vertices.set(item.id, item.pair);
+        // add ref to edge
+        refs.push(item.id);
+      }
+    }
+    // add new edge
+    this.edges.set(id, refs);
+  }
+};
+
+function searchTree(pair, buffer, tree) {
+  const sw = turf.destination(turf.point(pair), buffer * 1.5, 225, UNITS);
+  const ne = turf.destination(turf.point(pair), buffer * 1.5, 45, UNITS);
+
+  return tree.search({
+    minX: sw.geometry.coordinates[0],
+    minY: sw.geometry.coordinates[1],
+    maxX: ne.geometry.coordinates[0],
+    maxY: ne.geometry.coordinates[1]
+  });
+}
 
 Mashnet.prototype.add = function(addition) {
   if (process.env.DEBUG) {

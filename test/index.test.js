@@ -9,7 +9,7 @@ test("mashnet", async t => {
   const honolulu = require(path.join(__dirname, "../samples/honolulu.json"));
 
   const net = new Mashnet(honolulu);
-
+  /*
   const addition = {
     type: "Feature",
     properties: {},
@@ -50,7 +50,7 @@ test("mashnet", async t => {
     '{"highway":"residential","name":"Ala Akulikuli Street","max_speed":70}',
     "metadata merged"
   );
-
+*/
   // add
 
   const street = {
@@ -69,7 +69,7 @@ test("mashnet", async t => {
     }
   };
 
-  net.add(street);
+  net.append(street);
 
   t.done();
 });
