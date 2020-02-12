@@ -1,10 +1,10 @@
-'use strict';
+"use strict";
 
-const fs = require('fs');
-const turf = require('@turf/turf');
-const cover = require('@mapbox/tile-cover');
+const fs = require("fs");
+const turf = require("@turf/turf");
+const cover = require("@mapbox/tile-cover");
 
-const Mashnet = require('../src/index.js');
+const Mashnet = require("../src/index.js");
 
 const osm = JSON.parse(fs.readFileSync(process.argv[2]));
 const dot = JSON.parse(fs.readFileSync(process.argv[3]));

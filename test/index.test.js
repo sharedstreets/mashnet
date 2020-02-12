@@ -1,12 +1,12 @@
-'use strict';
+"use strict";
 
-const test = require('tap').test;
-const path = require('path');
+const test = require("tap").test;
+const path = require("path");
 
-const Mashnet = require('../src/index.js');
+const Mashnet = require("../src/index.js");
 
-test('mashnet', async(t) => {
-  const honolulu = require(path.join(__dirname, '../samples/honolulu.json'));
+test("mashnet", async t => {
+  const honolulu = require(path.join(__dirname, "../samples/honolulu.json"));
 
   const net = new Mashnet(honolulu);
   /*
@@ -50,7 +50,7 @@ test('mashnet', async(t) => {
     '{"highway":"residential","name":"Ala Akulikuli Street","max_speed":70}',
     "metadata merged"
   );
-*/
+
   // add
 
   const street = {
@@ -70,6 +70,19 @@ test('mashnet', async(t) => {
   };
 
   net.append(street);
+*/
+
+  const bbox = [
+    -157.84507155418396,
+    21.29764138193422,
+    -157.84247517585754,
+    21.299940472209933
+  ];
+  const subgraph = net.query(bbox);
+
+  t.ok(subgraph.edges.size, "subgraph edges present");
+  t.ok(subgraph.nodes.size, "subgraph nodes present");
+  t.ok(subgraph.vertices.size, "subgraph vertices present");
 
   t.done();
 });

@@ -546,7 +546,7 @@ Mashnet.prototype.merge = function(existing, addition) {
 
 Mashnet.prototype.split = function(addition) {};
 
-function phantomfy(coordinates, step) {
+function phantomify(coordinates, step) {
   const line = turf.lineString(coordinates);
   const pairs = [];
   const distance = turf.length(line);
@@ -559,6 +559,44 @@ function phantomfy(coordinates, step) {
   }
   return pairs;
 }
+
+Mashnet.prototype.query = function(bbox) {
+  const subgraph = {
+    edges: new Map(),
+    vertices: new Map(),
+    nodes: new Map()
+  };
+
+  this.edgetree
+    .search({
+      minX: bbox[0],
+      minY: bbox[1],
+      maxX: bbox[2],
+      maxY: bbox[3]
+    })
+    .forEach(e => {
+      const refs = this.edges.get(e.id);
+      subgraph.edges.set(e.id, refs);
+      for (let ref of refs) {
+        const vertex = this.vertices.get(ref);
+        subgraph.vertices.set(ref, vertex);
+      }
+    });
+
+  this.nodetree
+    .search({
+      minX: bbox[0],
+      minY: bbox[1],
+      maxX: bbox[2],
+      maxY: bbox[3]
+    })
+    .forEach(n => {
+      const edges = this.nodes.get(n.id);
+      subgraph.nodes.set(n.id, edges);
+    });
+
+  return subgraph;
+};
 
 Mashnet.prototype.append = function(addition) {
   const buffer = MAX_NODE_SHIFT * 1.5;
