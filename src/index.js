@@ -832,49 +832,117 @@ Mashnet.prototype.append = function(addition) {
   }
 
   for (const insert of inserts) {
-    const id = this.id++;
-    const refs = [];
+    // classify
+    let potentialMatch = false;
     for (const item of insert) {
-      if (item.type === "node") {
-        // add edge to node list
-        const node = this.nodes.get(item.id);
-        node.add(id);
-        this.nodes.set(item.id, node);
-        // add ref to edge
-        refs.push(item.id);
-      } else if (item.type === "vertex") {
-        // promote vertex to node
-        const parents = [];
-        for (const edge of this.edges) {
-          if (edge[1].indexOf(item.id) !== -1) {
-            parents.push(edge[0]);
-          }
-        }
-        console.log(parents);
-        // split parents
-        // insert new node
-        // add ref to edge
-        refs.push(item.id);
-      } else if (item.type === "phantom") {
-        // set phantom id
-        item.id = this.id++;
-        // insert new vertex
-        this.vertices.set(item.id, item.pair);
-        // split parents
-        // insert new node
-        // add ref to edge
-        refs.push(item.id);
-      } else if (item.type === "new") {
-        // set new id
-        item.id = this.id++;
-        // insert new vertex
-        this.vertices.set(item.id, item.pair);
-        // add ref to edge
-        refs.push(item.id);
+      if (item.type === "phantom") {
+        potentialMatch = true;
       }
     }
-    // add new edge
-    this.edges.set(id, refs);
+
+    if (potentialMatch) {
+      // attempt merge
+      // scan
+      // if is match, merge
+      // else ignore
+    } else {
+      const id = this.id++;
+      const refs = [];
+      for (const item of insert) {
+        if (item.type === "node") {
+          // add edge to node list
+          const node = this.nodes.get(item.id);
+          node.add(id);
+          this.nodes.set(item.id, node);
+          // add ref to edge
+          refs.push(item.id);
+        } else if (item.type === "vertex") {
+          // get parents
+          const parents = [];
+          for (const edge of edges) {
+            if (edge[1].indexOf(item.id) !== -1) {
+              parents.push(edge);
+            }
+          }
+          // delete parents
+          for (let parent of parents) {
+            this.edges.delete(parent[0])
+          }
+          // split parents
+          for (let parent of parents) {
+            let a = {
+              id: parent[0] + '!0',
+              refs: parent[1].slice(0, parent[1].indexOf(item.id)+1)
+            }
+            let b = {
+              id: parent[0] + '!1',
+              refs: parent[1].slice(parent[1].indexOf(item.id), parent[1].length)
+            }
+            this.edges.set(a.id, a.refs)
+            this.edges.set(b.id, b.refs)
+          }
+
+          // add ref to edge
+          refs.push(item.id);
+          // re-node
+        } else if (item.type === "phantom") {
+          // set phantom id
+          item.id = this.id++;
+          // insert new vertex
+          this.vertices.set(item.id, item.pair);
+          // get parents
+          const parents = [];
+          for (const edge of edges) {
+            if (edge[1].indexOf(item.id) !== -1) {
+              parents.push(edge);
+            }
+          }
+          // delete parents
+          for (let parent of parents) {
+            this.edges.delete(parent[0])
+          }
+          // split parents
+          for (let parent of parents) {
+            // todo: detect forward and back nodes, split in between
+            let a = {
+              id: parent[0] + '!0',
+              refs: parent[1].slice(0, parent[1].indexOf(item.id)+1)
+            }
+            let b = {
+              id: parent[0] + '!1',
+              refs: parent[1].slice(parent[1].indexOf(item.id), parent[1].length)
+            }
+            this.edges.set(a.id, a.refs)
+            this.edges.set(b.id, b.refs)
+          }
+          // add ref to edge
+          refs.push(item.id);
+          // re-node
+        } else if (item.type === "new") {
+          // set new id
+          item.id = this.id++;
+          // insert new vertex
+          this.vertices.set(item.id, item.pair);
+          // add ref to edge
+          refs.push(item.id);
+        }
+      }
+      // add new edge
+      this.edges.set(id, refs);
+
+      let coordinates = []
+      for (let ref of refs) {
+        coordinates.push(this.vertices.get(ref))
+      }
+      const newLine = turf.lineString(coordinates)
+      if(turf.length(newLine) > 0.05) {
+        const scores = this.scan(newLine)
+
+        if(scores[0].scan > 0 && scores[0].scan < 0.1) {
+          console.log(JSON.stringify(turf.lineString(coordinates)))
+        }
+      }
+    }
   }
 };
 

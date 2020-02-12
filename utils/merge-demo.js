@@ -23,7 +23,7 @@ let total = 0;
 let miss = 0;
 for (const edge of dot.features) {
   i++;
-  console.log("i:", ((i / dot.features.length) * 100).toFixed(4) + "%");
+  //console.log("i:", ((i / dot.features.length) * 100).toFixed(4) + "%");
   const line = turf.lineString(edge.geometry.coordinates[0], edge.properties);
 
   const keys = cover.indexes(edge.geometry, { min_zoom: 17, max_zoom: 17 });
@@ -35,9 +35,16 @@ for (const edge of dot.features) {
     }
   }
 
-  if (found) {
+  if (found && line.geometry.coordinates.length < 100) {
     total++;
-    const scores = net.scan(line);
+    //console.log('line:')
+    //console.log(JSON.stringify(line))
+    try {
+    net.append(line);
+  } catch (e) {
+
+  }
+    /*const scores = net.scan(line);
     const match = net.match(scores);
     edge.properties.score = match;
     // console.log(JSON.stringify(edge))
@@ -45,11 +52,12 @@ for (const edge of dot.features) {
       miss++;
       console.log(miss / total);
     }
-    predictions.push(edge);
+    predictions.push(edge);*/
   }
 }
-
+/*
 fs.writeFileSync(
   process.argv[4],
   JSON.stringify(turf.featureCollection(predictions))
 );
+*/
