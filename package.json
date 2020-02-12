@@ -7,6 +7,7 @@
     "test": "tap -R spec --no-coverage test/index.test.js",
     "coverage": "tap test/index.test.js",
     "lint": "eslint --fix src/*.js test/*.js utils/*.js && prettier --write *.js **/*.js",
+    "pretty": "prettier --write *.js **/*.js",
     "train": "node train/match.js"
   },
   "repository": {

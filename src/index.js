@@ -544,6 +544,22 @@ Mashnet.prototype.merge = function(existing, addition) {
   this.metadata.set(existing, metadata);
 };
 
+Mashnet.prototype.split = function(addition) {};
+
+function phantomfy(coordinates, step) {
+  const line = turf.lineString(coordinates);
+  const pairs = [];
+  const distance = turf.length(line);
+  const step = MAX_PHANTOM_SHIFT / distance;
+  let progress = 0.0;
+  while (progress + step < 1.0) {
+    progress += step;
+    const pair = turf.along(line, progress * distance).geometry.coordinates;
+    pairs.push(pair);
+  }
+  return pairs;
+}
+
 Mashnet.prototype.append = function(addition) {
   const buffer = MAX_NODE_SHIFT * 1.5;
   const bbox = turf.bbox(addition);
@@ -866,20 +882,23 @@ Mashnet.prototype.append = function(addition) {
           }
           // delete parents
           for (let parent of parents) {
-            this.edges.delete(parent[0])
+            this.edges.delete(parent[0]);
           }
           // split parents
           for (let parent of parents) {
             let a = {
-              id: parent[0] + '!0',
-              refs: parent[1].slice(0, parent[1].indexOf(item.id)+1)
-            }
+              id: parent[0] + "!0",
+              refs: parent[1].slice(0, parent[1].indexOf(item.id) + 1)
+            };
             let b = {
-              id: parent[0] + '!1',
-              refs: parent[1].slice(parent[1].indexOf(item.id), parent[1].length)
-            }
-            this.edges.set(a.id, a.refs)
-            this.edges.set(b.id, b.refs)
+              id: parent[0] + "!1",
+              refs: parent[1].slice(
+                parent[1].indexOf(item.id),
+                parent[1].length
+              )
+            };
+            this.edges.set(a.id, a.refs);
+            this.edges.set(b.id, b.refs);
           }
 
           // add ref to edge
@@ -899,21 +918,24 @@ Mashnet.prototype.append = function(addition) {
           }
           // delete parents
           for (let parent of parents) {
-            this.edges.delete(parent[0])
+            this.edges.delete(parent[0]);
           }
           // split parents
           for (let parent of parents) {
             // todo: detect forward and back nodes, split in between
             let a = {
-              id: parent[0] + '!0',
-              refs: parent[1].slice(0, parent[1].indexOf(item.id)+1)
-            }
+              id: parent[0] + "!0",
+              refs: parent[1].slice(0, parent[1].indexOf(item.id) + 1)
+            };
             let b = {
-              id: parent[0] + '!1',
-              refs: parent[1].slice(parent[1].indexOf(item.id), parent[1].length)
-            }
-            this.edges.set(a.id, a.refs)
-            this.edges.set(b.id, b.refs)
+              id: parent[0] + "!1",
+              refs: parent[1].slice(
+                parent[1].indexOf(item.id),
+                parent[1].length
+              )
+            };
+            this.edges.set(a.id, a.refs);
+            this.edges.set(b.id, b.refs);
           }
           // add ref to edge
           refs.push(item.id);
@@ -930,16 +952,16 @@ Mashnet.prototype.append = function(addition) {
       // add new edge
       this.edges.set(id, refs);
 
-      let coordinates = []
+      let coordinates = [];
       for (let ref of refs) {
-        coordinates.push(this.vertices.get(ref))
+        coordinates.push(this.vertices.get(ref));
       }
-      const newLine = turf.lineString(coordinates)
-      if(turf.length(newLine) > 0.05) {
-        const scores = this.scan(newLine)
+      const newLine = turf.lineString(coordinates);
+      if (turf.length(newLine) > 0.05) {
+        const scores = this.scan(newLine);
 
-        if(scores[0].scan > 0 && scores[0].scan < 0.1) {
-          console.log(JSON.stringify(turf.lineString(coordinates)))
+        if (scores[0].scan > 0 && scores[0].scan < 0.1) {
+          console.log(JSON.stringify(turf.lineString(coordinates)));
         }
       }
     }

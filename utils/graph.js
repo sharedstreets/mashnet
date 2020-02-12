@@ -1,18 +1,18 @@
-"use strict";
+'use strict';
 
 // node graph.js ./graph.json ./graph.html
 
-const fs = require("fs");
-const path = require("path");
-const turf = require("@turf/turf");
-const Mashnet = require("../src/index.js");
+const fs = require('fs');
+const path = require('path');
+const turf = require('@turf/turf');
+const Mashnet = require('../src/index.js');
 
-const html = fs.readFileSync(path.join(__dirname, "graph.html")).toString();
+const html = fs.readFileSync(path.join(__dirname, 'graph.html')).toString();
 
 const token =
-  "pk.eyJ1IjoibW9yZ2FuaGVybG9ja2VyIiwiYSI6Ii1zLU4xOWMifQ.FubD68OEerk74AYCLduMZQ";
+  'pk.eyJ1IjoibW9yZ2FuaGVybG9ja2VyIiwiYSI6Ii1zLU4xOWMifQ.FubD68OEerk74AYCLduMZQ';
 
-const honolulu = require(path.join(__dirname, "../samples/honolulu.json"));
+const honolulu = require(path.join(__dirname, '../samples/honolulu.json'));
 const net = new Mashnet(honolulu);
 
 const edges = turf.featureCollection([]);
@@ -37,13 +37,13 @@ for (const vertex of net.vertices) {
 }
 
 const render = html
-  .split("{{token}}")
+  .split('{{token}}')
   .join(token)
-  .split("{{edges}}")
+  .split('{{edges}}')
   .join(JSON.stringify(edges))
-  .split("{{vertices}}")
+  .split('{{vertices}}')
   .join(JSON.stringify(vertices))
-  .split("{{nodes}}")
+  .split('{{nodes}}')
   .join(JSON.stringify(nodes));
 
 fs.writeFileSync(process.argv[2], render);

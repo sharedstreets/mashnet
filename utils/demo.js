@@ -1,10 +1,10 @@
-"use strict";
+'use strict';
 
-const path = require("path");
+const path = require('path');
 
-const Mashnet = require("../src/index.js");
+const Mashnet = require('../src/index.js');
 
-const honolulu = require(path.join(__dirname, "../samples/honolulu.json"));
+const honolulu = require(path.join(__dirname, '../samples/honolulu.json'));
 
 const net = new Mashnet(honolulu);
 /*
@@ -43,10 +43,10 @@ const data = net.metadata.get(scores[0].id);
 // add
 
 const street = {
-  type: "Feature",
+  type: 'Feature',
   properties: {},
   geometry: {
-    type: "LineString",
+    type: 'LineString',
     coordinates: [
       [-157.91604816913605, 21.35034147982776],
       [-157.91581213474274, 21.35018409732726],

@@ -1,12 +1,12 @@
-"use strict";
+'use strict';
 
-const test = require("tap").test;
-const path = require("path");
+const test = require('tap').test;
+const path = require('path');
 
-const Mashnet = require("../src/index.js");
+const Mashnet = require('../src/index.js');
 
-test("mashnet", async t => {
-  const honolulu = require(path.join(__dirname, "../samples/honolulu.json"));
+test('mashnet', async(t) => {
+  const honolulu = require(path.join(__dirname, '../samples/honolulu.json'));
 
   const net = new Mashnet(honolulu);
   /*
@@ -54,10 +54,10 @@ test("mashnet", async t => {
   // add
 
   const street = {
-    type: "Feature",
+    type: 'Feature',
     properties: {},
     geometry: {
-      type: "LineString",
+      type: 'LineString',
       coordinates: [
         [-157.91604816913605, 21.35034147982776],
         [-157.91581213474274, 21.35018409732726],
