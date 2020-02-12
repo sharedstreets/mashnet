@@ -564,7 +564,9 @@ Mashnet.prototype.query = function(bbox) {
   const subgraph = {
     edges: new Map(),
     vertices: new Map(),
-    nodes: new Map()
+    nodes: new Map(),
+    edgeTree: new RTree(),
+    nodeTree: new RTree()
   };
 
   this.edgetree
@@ -575,6 +577,7 @@ Mashnet.prototype.query = function(bbox) {
       maxY: bbox[3]
     })
     .forEach(e => {
+      subgraph.edgeTree.insert(e)
       const refs = this.edges.get(e.id);
       subgraph.edges.set(e.id, refs);
       for (let ref of refs) {
@@ -591,6 +594,7 @@ Mashnet.prototype.query = function(bbox) {
       maxY: bbox[3]
     })
     .forEach(n => {
+      subgraph.nodeTree.insert(n)
       const edges = this.nodes.get(n.id);
       subgraph.nodes.set(n.id, edges);
     });
