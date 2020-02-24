@@ -23,6 +23,10 @@ _Example of merging 3 road networks into a single, routable network:_
 
 ![](https://i.imgur.com/ihvsQZR.jpg)
 
+## Stability
+
+Mashnet is under active development. It is usable in its current form, and the overall workflow is established, however, the API is subject to change rapidly until further notice.
+
 ## API
 
 ### new
@@ -80,9 +84,49 @@ if (isMatch > 0.95) {
 }
 ```
 
-### add
+### query
 
-Add accepts a new street represented as a GeoJSON LineString Feature with properties representing a metadata blob. The add function should be used when a proposed street has a low match score, signifying an edge that is not represented in the existing graph. The graph will be incrementally normalized to maintain topological integrity, and may result in one or more edges being added to the graph.
+Query the graph by a bbox. Returns a subgraph of nodes, vertices, and edges. Used internally for isolating graph partitions, but also useful for analyzing areas of interest.
+
+```js
+const subgraph = net.query([minX, minY, maxX, maxY]);
+```
+
+### snap
+
+Accepts a proposed street and returns a set of "snaps" to the existing road network. Each snap of the proposed street will include information about nearby nodes, vertices, and edges.
+
+```js
+const snaps = net.snap(street);
+```
+
+### split
+
+Accepts a set of snaps, and creates a set of logical changeset chunks. Some of these chunks will be new edges and some will be existing edges, indicated by the presence of void snaps.
+
+```js
+const splits = net.split(snaps);
+```
+
+### materialize
+
+Accepts a set of changeset splits, and returns an array of GeoJSON LineStrings, which can be used to visualize the changesets.
+
+```js
+const lines = net.materialize(splits);
+```
+
+### commit
+
+Accepts a set of changeset splits, and commits them to the graph. Optionally accepts metadata that can be merged into matching pre-existing edges.
+
+```js
+net.commit(splits, metadata);
+```
+
+### propose
+
+Accepts a proposed street, and returns a set of changeset splits. This function is a wrapper of `snap` + `split`. These splits are not applied to the graph automatically with the `propose` function, allowing them to be visualized or fed to a task manager before modifying the network.
 
 ```js
 const street = {
@@ -100,11 +144,30 @@ const street = {
   }
 }
 
-const scores = net.scan(street)
-const isMatch = net.match(scores)
-if (isMatch < 0.05) {
-  net.add(street)
+net.propose(street)
+```
+
+### apply
+
+Apply accepts a new street represented as a GeoJSON LineString Feature with properties representing a metadata blob. The apply function will merge metadata and insert new edges where detected.
+
+```js
+const street = {
+  type: "Feature",
+  properties: {
+    "max_speed": 30
+  },
+  geometry: {
+    type: "LineString",
+    coordinates: [
+      [-157.9146158695221, 21.346424354025306],
+      [-157.9154634475708, 21.347043906401122],
+      [-157.9165470600128, 21.348442886005444]
+    ]
+  }
 }
+
+net.apply(street)
 ```
 
 
@@ -186,15 +249,6 @@ A conflation network can be created from scratch or with a bootstrapped graph fr
   - if present, follow merge strategy (do nothing, use new, numeric average, etc)
   - merge may fail, in which case it will remain pending
 
-## Misc
-
-- run as a library or a CLI
-- load existing basemap from disk or in memory store, if available
-- incrementally attempt to match and merge each new edge
-- the same network should be generated regardless of order merged (ideally -- unclear if this is feasible)
-- match threshold should be configurable using a metric scale for match probability
-- once all merges have been performed, dump database to disk format or upload to s3 if in browser
-- library will come with pre-computed match weights and normalization parameters for convenient deployment
 
 ## Install
 

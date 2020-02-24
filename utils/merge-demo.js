@@ -8,7 +8,7 @@ const Mashnet = require("../src/index.js");
 
 const osm = JSON.parse(fs.readFileSync(process.argv[2]));
 const dot = JSON.parse(fs.readFileSync(process.argv[3]));
-const predictions = [];
+// const predictions = [];
 const net = new Mashnet(osm);
 const quadkeys = new Set();
 for (const edge of osm) {
@@ -20,9 +20,15 @@ for (const edge of osm) {
 
 let i = 0;
 let total = 0;
-const miss = 0;
+let then = Date.now();
+let now = then;
+let totalTime = 0;
 for (const edge of dot.features) {
-  i++;
+  now = Date.now();
+  const delta = now - then;
+  totalTime += delta;
+  console.log(totalTime / i);
+  then = now;
   // console.log("i:", ((i / dot.features.length) * 100).toFixed(4) + "%");
   const line = turf.lineString(edge.geometry.coordinates[0], edge.properties);
 
@@ -36,12 +42,15 @@ for (const edge of dot.features) {
   }
 
   if (found && line.geometry.coordinates.length < 100) {
+    i++;
     total++;
     // console.log('line:')
     // console.log(JSON.stringify(line))
     try {
       net.append(line);
-    } catch (e) {}
+    } catch (e) {
+      // error found
+    }
     /* const scores = net.scan(line);
     const match = net.match(scores);
     edge.properties.score = match;

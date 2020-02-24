@@ -2,6 +2,7 @@
 
 const test = require("tap").test;
 const path = require("path");
+// const turf = require('@turf/turf');
 
 const Mashnet = require("../src/index.js");
 
@@ -9,7 +10,7 @@ test("mashnet", async t => {
   const honolulu = require(path.join(__dirname, "../samples/honolulu.json"));
 
   const net = new Mashnet(honolulu);
-  /*
+
   const addition = {
     type: "Feature",
     properties: {},
@@ -51,26 +52,7 @@ test("mashnet", async t => {
     "metadata merged"
   );
 
-  // add
-
-  const street = {
-    type: 'Feature',
-    properties: {},
-    geometry: {
-      type: 'LineString',
-      coordinates: [
-        [-157.91604816913605, 21.35034147982776],
-        [-157.91581213474274, 21.35018409732726],
-        [-157.91565924882886, 21.350114149495003],
-        [-157.91538298130035, 21.349984246289427],
-        [-157.9150503873825, 21.34975441725907],
-        [-157.91475266218185, 21.349584543396308]
-      ]
-    }
-  };
-
-  net.append(street);
-*/
+  // query
 
   const bbox = [
     -157.84507155418396,
@@ -83,6 +65,48 @@ test("mashnet", async t => {
   t.ok(subgraph.edges.size, "subgraph edges present");
   t.ok(subgraph.nodes.size, "subgraph nodes present");
   t.ok(subgraph.vertices.size, "subgraph vertices present");
+  t.ok(subgraph.edgeTree.all().length, "subgraph edgeTree present");
+  t.ok(subgraph.nodeTree.all().length, "subgraph nodeTree present");
+
+  // snap
+
+  const street = {
+    type: "Feature",
+    properties: {},
+    geometry: {
+      type: "LineString",
+      coordinates: [
+        [-157.91675090789795, 21.380355978162594],
+        [-157.9176950454712, 21.378317904666634],
+        [-157.91451930999756, 21.37412178163886],
+        [-157.9172658920288, 21.36864665932247],
+        [-157.91460514068604, 21.358894839625684]
+      ]
+    }
+  };
+
+  const snaps = net.snap(street);
+
+  t.equal(snaps.length, 492, "snap phantoms to network");
+
+  // split
+
+  const splits = net.split(snaps);
+
+  t.equal(splits.length, 35, "splits snaps into chunks");
+
+  // materialize
+
+  const changesets = net.materialize(splits);
+
+  t.equal(changesets.length, 35, "creates geojson linestrings from splits");
+
+  // visualize changesets:
+  // console.log(JSON.stringify(turf.featureCollection(changesets)));
+
+  // commit
+
+  net.commit(splits);
 
   t.done();
 });

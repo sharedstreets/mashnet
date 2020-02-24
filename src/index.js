@@ -12,8 +12,8 @@ const debug = require("./debug");
 const UNITS = { units: "kilometers" };
 const DEG2RAD = Math.PI / 180.0;
 const RAD2DEG = 180.0 / Math.PI;
-const MAX_NODE_SHIFT = 0.015;
-const MAX_VERTEX_SHIFT = 0.01;
+const MAX_NODE_SHIFT = 0.01;
+const MAX_VERTEX_SHIFT = 0.0075;
 const MAX_PHANTOM_SHIFT = 0.005;
 const DEBUG_COLOR_1 = "#ff66ff"; // pink
 const DEBUG_COLOR_2 = "#00ff00"; // green
@@ -544,11 +544,167 @@ Mashnet.prototype.merge = function(existing, addition) {
   this.metadata.set(existing, metadata);
 };
 
-Mashnet.prototype.split = function(addition) {};
+Mashnet.prototype.snap = function(addition) {
+  const phantoms = phantomify(addition.geometry.coordinates);
+  const snaps = [];
+  const buffer = MAX_NODE_SHIFT * 1.5;
+  const bbox = turf.bbox(addition);
+  const sw = turf.destination(turf.point(bbox.slice(0, 2)), buffer, 225, UNITS);
+  const ne = turf.destination(turf.point(bbox.slice(2, 4)), buffer, 45, UNITS);
+  const subgraph = this.query([
+    sw.geometry.coordinates[0],
+    sw.geometry.coordinates[1],
+    ne.geometry.coordinates[0],
+    ne.geometry.coordinates[1]
+  ]);
 
-function phantomify(coordinates, step) {
+  let anchors = [];
+  for (const edge of subgraph.edges) {
+    const coordinates = edge[1].map(ref => {
+      return subgraph.vertices.get(ref);
+    });
+    anchors = anchors.concat(
+      phantomify(coordinates).map(c => {
+        return c.concat(edge[0]);
+      })
+    );
+  }
+
+  for (const phantom of phantoms) {
+    const snap = {
+      node: {
+        distance: Infinity,
+        id: null
+      },
+      vertex: {
+        distance: Infinity,
+        id: null
+      },
+      anchor: {
+        distance: Infinity,
+        id: null,
+        pair: null
+      },
+      void: {
+        pair: null
+      }
+    };
+
+    // nodes
+    for (const node of subgraph.nodes) {
+      const pair = subgraph.vertices.get(node[0]);
+      const distance = turf.distance(turf.point(pair), turf.point(phantom));
+      if (distance < MAX_NODE_SHIFT && snap.node.distance > distance) {
+        snap.node = {
+          distance: distance,
+          id: node[0]
+        };
+      }
+    }
+
+    // vertices
+    if (!snap.node.id) {
+      for (const vertex of subgraph.vertices) {
+        const pair = subgraph.vertices.get(vertex[0]);
+        const distance = turf.distance(turf.point(pair), turf.point(phantom));
+        if (distance < MAX_VERTEX_SHIFT && snap.vertex.distance > distance) {
+          snap.vertex = {
+            distance: distance,
+            id: vertex[0]
+          };
+        }
+      }
+    }
+
+    // anchors
+    if (!snap.node.id && !snap.vertex.id) {
+      for (const anchor of anchors) {
+        const pair = anchor.slice(0, 2);
+        const distance = turf.distance(turf.point(pair), turf.point(phantom));
+        if (distance < MAX_PHANTOM_SHIFT && snap.anchor.distance > distance) {
+          snap.anchor = {
+            distance: distance,
+            id: anchor[2],
+            pair: pair
+          };
+        }
+      }
+    }
+
+    // void
+    if (!snap.node.id && !snap.vertex.id && !snap.anchor.id) {
+      snap.void = {
+        pair: phantom
+      };
+    }
+
+    // filter duplicate adjacent snaps
+    if (snaps.length > 0) {
+      const last = snaps[snaps.length - 1];
+      if (
+        !(snap.node.id && last.node.id && snap.node.id === last.node.id) &&
+        !(
+          snap.vertex.id &&
+          last.vertex.id &&
+          snap.vertex.id === last.vertex.id
+        ) &&
+        !(
+          snap.anchor.id &&
+          last.anchor.id &&
+          snap.anchor.id === last.anchor.id &&
+          snap.anchor.pair.join(",") === last.anchor.pair.join(",")
+        )
+      ) {
+        snaps.push(snap);
+      }
+    } else {
+      snaps.push(snap);
+    }
+  }
+
+  return snaps;
+};
+
+/* Mashnet.prototype.crossing = function (coordinates, subgraph) {
+  const crossings = [];
+  const edges = [];
+  for (let edge of subgraph.edges) {
+    for (let i = 0; i < edge[1].length - 1; i++) {
+      edges.push([
+        subgraph.vertices.get(edge[1][i]),
+        subgraph.vertices.get(edge[1][i+1]),
+        edge[0]
+      ]);
+    }
+  }
+
+  for (let i = 0; i < coordinates.length - 1; i++) {
+    const segment = [coordinates[i], coordinates[i+1]]
+    for (let edge of edges) {
+      const intersect = intersects(
+        edge[0],
+
+      )
+      if(intersect) console.log(JSON.stringify(intersect))
+    }
+  }
+}
+
+function intersects(a,b,c,d,p,q,r,s) {
+  var det, gamma, lambda;
+  det = (c - a) * (s - q) - (r - p) * (d - b);
+  if (det === 0) {
+    return false;
+  } else {
+    lambda = ((s - q) * (r - a) + (p - r) * (s - b)) / det;
+    gamma = ((b - d) * (r - a) + (c - a) * (s - b)) / det;
+    return (0 < lambda && lambda < 1) && (0 < gamma && gamma < 1);
+  }
+};*/
+
+function phantomify(coordinates) {
   const line = turf.lineString(coordinates);
-  const pairs = [];
+  const pairs = [coordinates[0]];
   const distance = turf.length(line);
   const step = MAX_PHANTOM_SHIFT / distance;
   let progress = 0.0;
@@ -557,6 +713,7 @@ function phantomify(coordinates, step) {
     const pair = turf.along(line, progress * distance).geometry.coordinates;
     pairs.push(pair);
   }
+  pairs.push(coordinates[coordinates.length - 1]);
   return pairs;
 }
 
@@ -577,10 +734,10 @@ Mashnet.prototype.query = function(bbox) {
       maxY: bbox[3]
     })
     .forEach(e => {
-      subgraph.edgeTree.insert(e)
+      subgraph.edgeTree.insert(e);
       const refs = this.edges.get(e.id);
       subgraph.edges.set(e.id, refs);
-      for (let ref of refs) {
+      for (const ref of refs) {
         const vertex = this.vertices.get(ref);
         subgraph.vertices.set(ref, vertex);
       }
@@ -594,7 +751,7 @@ Mashnet.prototype.query = function(bbox) {
       maxY: bbox[3]
     })
     .forEach(n => {
-      subgraph.nodeTree.insert(n)
+      subgraph.nodeTree.insert(n);
       const edges = this.nodes.get(n.id);
       subgraph.nodes.set(n.id, edges);
     });
@@ -602,6 +759,126 @@ Mashnet.prototype.query = function(bbox) {
   return subgraph;
 };
 
+Mashnet.prototype.split = function(snaps) {
+  const splits = [[snaps.shift()]];
+
+  while (snaps.length) {
+    const snap = snaps.shift();
+    splits[splits.length - 1].push(snap);
+    const next = snaps[0];
+
+    if (
+      !snap.void.pair &&
+      // do not split anchors along matching edge
+      !(
+        snaps.length > 0 &&
+        snap.anchor.id &&
+        next.anchor.id &&
+        snap.anchor.id === next.anchor.id
+      )
+    ) {
+      splits.push([snap]);
+    }
+  }
+
+  return splits;
+};
+
+Mashnet.prototype.materialize = function(splits) {
+  const lines = [];
+  let i = 0;
+  for (const split of splits) {
+    const pairs = [];
+    for (const snap of split) {
+      if (snap.node.id) {
+        pairs.push(this.vertices.get(snap.node.id));
+      } else if (snap.vertex.id) {
+        pairs.push(this.vertices.get(snap.vertex.id));
+      } else if (snap.anchor.id) {
+        pairs.push(snap.anchor.pair);
+      } else {
+        pairs.push(snap.void.pair);
+      }
+    }
+
+    const line = turf.lineString(pairs);
+
+    let hasVoid = false;
+    for (const snap of split) {
+      if (snap.void.pair) {
+        hasVoid = true;
+        continue;
+      }
+    }
+    if (hasVoid) {
+      line.properties.action = "create";
+    } else {
+      line.properties.action = "merge";
+    }
+    line.properties.changeset = i;
+    lines.push(line);
+    i++;
+  }
+  return lines;
+};
+
+Mashnet.prototype.commit = function(splits, metadata) {
+  // integrates changesets into graph
+  for (const split of splits) {
+    let merge = true;
+    for (const snap of split) {
+      if (snap.void.pair) {
+        merge = false;
+        continue;
+      }
+    }
+
+    if (merge) {
+      // search for matching edge
+      const line = this.materialize([split])[0];
+      const scores = this.scan(line);
+      const isMatch = this.match(scores);
+      // merge edge if top match passes threshold
+      if (isMatch > 0.95) {
+        this.merge(scores[0].id, metadata);
+      }
+    } else {
+      // insert new edge
+      const edgeId = this.id++;
+      const refs = [];
+      for (const snap of split) {
+        if (snap.node.id) {
+          // node
+          refs.push(snap.node.id);
+        } else if (snap.vertex.id) {
+          // vertex
+          refs.push(snap.vertex.id);
+        } else if (snap.anchor.id) {
+          // edge anchor
+          const id = this.id++;
+          refs.push(id);
+          this.vertices.set(id, snap.anchor.pair);
+          this.nodes.set(id, [edgeId]);
+        } else {
+          // void
+          const id = this.id++;
+          refs.push(id);
+          this.vertices.set(id, snap.void.pair);
+        }
+      }
+    }
+  }
+};
+
+Mashnet.prototype.propose = function(addition) {
+  // wraps snap+split
+};
+
+Mashnet.prototype.apply = function(addition) {
+  // wraps snap+split+commit
+};
+
+// NOTE: pre-production legacy API, to be deprecated; preserved for initial demo
 Mashnet.prototype.append = function(addition) {
   const buffer = MAX_NODE_SHIFT * 1.5;
   const bbox = turf.bbox(addition);
@@ -923,16 +1200,16 @@ Mashnet.prototype.append = function(addition) {
             }
           }
           // delete parents
-          for (let parent of parents) {
+          for (const parent of parents) {
             this.edges.delete(parent[0]);
           }
           // split parents
-          for (let parent of parents) {
-            let a = {
+          for (const parent of parents) {
+            const a = {
               id: parent[0] + "!0",
               refs: parent[1].slice(0, parent[1].indexOf(item.id) + 1)
             };
-            let b = {
+            const b = {
               id: parent[0] + "!1",
               refs: parent[1].slice(
                 parent[1].indexOf(item.id),
@@ -959,17 +1236,17 @@ Mashnet.prototype.append = function(addition) {
             }
           }
           // delete parents
-          for (let parent of parents) {
+          for (const parent of parents) {
             this.edges.delete(parent[0]);
           }
           // split parents
-          for (let parent of parents) {
+          for (const parent of parents) {
             // todo: detect forward and back nodes, split in between
-            let a = {
+            const a = {
               id: parent[0] + "!0",
               refs: parent[1].slice(0, parent[1].indexOf(item.id) + 1)
             };
-            let b = {
+            const b = {
               id: parent[0] + "!1",
               refs: parent[1].slice(
                 parent[1].indexOf(item.id),
@@ -994,8 +1271,8 @@ Mashnet.prototype.append = function(addition) {
       // add new edge
       this.edges.set(id, refs);
 
-      let coordinates = [];
-      for (let ref of refs) {
+      const coordinates = [];
+      for (const ref of refs) {
         coordinates.push(this.vertices.get(ref));
       }
       const newLine = turf.lineString(coordinates);
