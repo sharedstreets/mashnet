@@ -13,7 +13,7 @@ const UNITS = { units: "kilometers" };
 const TRAIN_COUNT = 10000;
 const ITERATIONS = 10000;
 
-const honolulu = require(path.join(__dirname, "./fixtures/honolulu.json"));
+const honolulu = require(path.join(__dirname, "../samples/honolulu.json"));
 const chance = new Chance();
 const modelDir = path.join(__dirname, "../model/");
 const model = path.join(modelDir, "match.json");
